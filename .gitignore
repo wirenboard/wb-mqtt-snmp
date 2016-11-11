@@ -22,3 +22,9 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+# Project specific
+wb-mqtt-snmp
+
+# Tmp
+.*.swp
