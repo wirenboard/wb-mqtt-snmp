@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "title": "SNMP Device Driver Configuration",
+  "description": "List devices to poll via SNMP protocol",
+
+  "configFile": {
+    "path": "/etc/wb-mqtt-snmp.conf",
+    "service": "wb-mqtt-snmp"
+  },
+
+  "definitions": {
+    "device": {
+      "type": "object",
+      "title": "SNMP device",
+
+      "properties": {
+        "name": {
+          "type": "string",
+          "title": "Device name",
+          "description": "Device name to be displayed in UI",
+          "minLength": 1,
+          "propertyOrder": 10
+        },
+        "id": {
+          "type": "string",
+          "title": "MQTT ID of the device",
+          "description": "Used as a part of a MQTT topic name",
+          "minLength": 1,
+          "propertyOrder": 20
+        },
+        "address": {
+          "type": "string",
+          "title": "SNMP device address",
+          "description": "May be either IP address or domain name",
+          "minLength": 1,
+          "propertyOrder": 30
+        },
+        "device_type": {
+          "type": "string",
+          "title": "Device type",
+          "description": "Selects device template",
+          "enum": {
+            "directories": ["/usr/share/wb-mqtt-snmp/templates"],
+            "pointer": "/device_type",
+            "pattern": "^.*\\.json"
+          },
+          "propertyOrder": 40
+        },
+        "enabled": {
+          "type": "boolean",
+          "title": "Enable device",
+          "default": true,
+          "_format": "checkbox",
+          "propertyOrder": 50
+        },
+        "snmp_version": {
+          "type": "string",
+          "title": "SNMP protocol version for device",
+          "enum": [ "1", "2c" ],
+          "default": "2c",
+          "propertyOrder": 60
+        },
+        "snmp_timeout": {
+          "type": "integer",
+          "title": "SNMP timeout (in seconds)",
+          "minimum": 0,
+          "default": 5,
+          "propertyOrder": 70
+        },
+        "channels": {
+          "type": "array",
+          "title": "List of channels",
+          "description": "List device variables and their corresponding controls",
+          "items": { "$ref": "#/definitions/channel" },
+          "propertyOrder": 80
+        }
+      },
+      
+      "required": ["address"],
+      "defaultProperties": ["address", "device_type", "enabled"]
+    },
+
+    "channel": {
+      "type": "object",
+      "title": "Channel",
+
+      "properties": {
+        "name": {
+          "type": "string",
+          "title": "Control name",
+          "description": "This name is displayed both in MQTT topic and UI",
+          "minLength": 1,
+          "propertyOrder": 10
+        },
+
+        "object_name": {
+          "type": "string",
+          "title": "Obect name",
+          "description": "OID (starting from dot) or variable name from MIB",
+          "minLength": 1,
+          "propertyOrder": 20
+        },
+        
+        "control_type": {
+          "type": "string",
+          "title": "Control type",
+          "description": "Defaults to 'text'",
+          "enum": [ "text", "value", "temperature", "voltage", "power" ], // TODO: fill in control types
+          "propertyOrder": 30
+        },
+
+        "scale": {
+          "type": "number",
+          "title": "Scale (value multiplier)",
+          "default": 1,
+          "propertyOrder": 40
+        },
+
+        "poll_interval": {
+          "type": "integer",
+          "title": "Desired poll interval (ms)",
+          "description" : "This option specifies the desired interval between two consecutive polls of each channel (or total duration of the poll cycle)",
+          "minimum": 0,
+          "default": 1000,
+          "propertyOrder": 50
+        }
+      }
+    }
+  }
+}
