@@ -127,5 +127,33 @@
         }
       }
     }
-  }
+  },
+
+  "properties": {
+    "debug": {
+      "type": "boolean",
+      "title": "Enable debug logging",
+      "default": false,
+      "_format": "checkbox",
+      "propertyOrder": 10
+    },
+    "devices": {
+      "type": "array",
+      "title": "List of devices",
+      "description": "Hosts to be accessed by driver",
+      "items": { "$ref": "#/definitions/device" },
+      "minItems": 1,
+      "_format": "list",
+      "propertyOrder": 20
+    },
+    "max_unchanged_interval": {
+      "type": "integer",
+      "title": "Unchanged value posting interval",
+      "description": "Maximum interval in seconds between posting the same value to message queue. Zero - post at every reading, negative - don't post the same values",
+      "default": -1,
+      "propertyOrder": 30
+    }
+  },
+
+  "required": [ "devices" ]
 }
