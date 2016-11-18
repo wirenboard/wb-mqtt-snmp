@@ -8,12 +8,18 @@ import (
     "io/ioutil"
     "strconv"
     "math"
+    "regexp"
+    // "log"
 )
 
 
 const (
     // Default templates directory
-    TemplatesDirectory = "/usr/share/wb-mqtt-snmp/templates"
+    // TemplatesDirectory = "/usr/share/wb-mqtt-snmp/templates"
+    TemplatesDirectory = "./templates"
+
+    // Template file regexp
+    TemplatesFileMask = ".*\\.json"
 
     // Environmental variable that tells which directories to search
     // for template files. List is colon-separated.
@@ -23,8 +29,17 @@ const (
 
     floatEps = 0.00001 // epsilon to compare floats
 
-    //  Default poll interval for channels
+    // Default poll interval for channels
     DefaultChannelPollInterval = 1000
+
+    // Default channel control type
+    DefaultChannelControlType = "value"
+
+    // Default SNMP version
+    DefaultSnmpVersion = gosnmp.Version2c
+
+    // Default SNMP timeout (ms)
+    DefaultSnmpTimeout = 1000
 )
 
 // Device templates storage type
@@ -41,10 +56,22 @@ func (tpl *deviceTemplatesStorage) Load(dir string) error {
         return fmt.Errorf("failed to read templates dir %s: %s", dir, err.Error())
     }
 
-    for _, file := range files {
-        data, err := ioutil.ReadFile(file.Name())
+    tpl.templates = make(map[string]map[string]interface{})
 
-        if err == nil {
+    for _, file := range files {
+        m, err := regexp.MatchString(TemplatesFileMask, file.Name())
+        if err != nil {
+            return fmt.Errorf("error in filename regexp: %s", err.Error())
+        }
+
+        // skip files which don't match regexp
+        if !m {
+            continue
+        }
+
+        data, err := ioutil.ReadFile(dir + "/" + file.Name())
+
+        if err != nil {
             return fmt.Errorf("failed to read template file %s: %s", file.Name(), err.Error())
         }
 
@@ -106,6 +133,10 @@ func Scale(factor float64) ValueConverter {
     }
 }
 
+// Check if control type is numeric
+func isNumericControlType(ctype string) bool {
+    return ctype != "text"
+}
 
 // Final structures
 type ChannelConfig struct {
@@ -127,6 +158,18 @@ type DaemonConfig struct {
     Devices []DeviceConfig
 }
 
+// Make empty device config
+func NewEmptyDeviceConfig() DeviceConfig {
+    d := DeviceConfig{SnmpVersion: DefaultSnmpVersion, SnmpTimeout: DefaultSnmpTimeout}
+    return d
+}
+
+// Make empty channel config
+func NewEmptyChannelConfig() ChannelConfig {
+    c := ChannelConfig{ControlType: DefaultChannelControlType, Conv: AsIs, PollInterval: DefaultChannelPollInterval}
+    return c
+}
+
 // JSON unmarshaller for DaemonConfig
 func (c *DaemonConfig) UnmarshalJSON(raw []byte) error {
     var root struct {
@@ -144,12 +187,92 @@ func (c *DaemonConfig) UnmarshalJSON(raw []byte) error {
     return c.parseDevices(root.Devices)
 }
 
+// Copy raw interface{} data from map to string
+func copyString(fromMap *map[string]interface{}, key string, to *string, required bool) error {
+    if entry, ok := (*fromMap)[key]; ok {
+        if val, valid := entry.(string); valid {
+            *to = val
+        } else {
+            return fmt.Errorf("%s must be string, but %T given", key, entry)
+        }
+    } else {
+        if required {
+            return fmt.Errorf("%s is not present", key)
+        }
+    }
+
+    return nil
+}
+
+// Copy raw interface{} data from map to int
+func copyInt(fromMap *map[string]interface{}, key string, to *int, required bool) error {
+    if entry, ok := (*fromMap)[key]; ok {
+        if val, valid := entry.(float64); valid {
+            *to = int(val)
+        } else {
+            return fmt.Errorf("%s must be int, but %T given", key, entry)
+        }
+    } else {
+        if required {
+            return fmt.Errorf("%s is not present", key)
+        }
+    }
+
+    return nil
+}
+
+// Copy raw interface{} data from map to SnmpVersion
+func copySnmpVersion(fromMap *map[string]interface{}, key string, to *gosnmp.SnmpVersion, required bool) error {
+    if entry, ok := (*fromMap)[key]; ok {
+        if val, valid := entry.(string); valid {
+            switch val {
+            case "1":
+                *to = gosnmp.Version1
+            case "2c":
+                *to = gosnmp.Version2c
+            default:
+                return fmt.Errorf("SNMP version must be either 1 or 2c, %s given", val)
+            }
+        } else {
+            return fmt.Errorf("%s must be int, but %T given", key, entry)
+        }
+    } else {
+        if required {
+            return fmt.Errorf("%s is not present", key)
+        }
+    }
+
+    return nil
+}
+
+// Copy raw interface{} data from map to float64
+func copyFloat64(fromMap *map[string]interface{}, key string, to *float64, required bool) error {
+    if entry, ok := (*fromMap)[key]; ok {
+        if val, valid := entry.(float64); valid {
+            *to = val
+        } else {
+            return fmt.Errorf("%s must be number, but %T given", key, entry)
+        }
+    } else {
+        if required {
+            return fmt.Errorf("%s is not present", key)
+        }
+    }
+
+    return nil
+}
+
 // Parse devices list
 func (c *DaemonConfig) parseDevices(devs []map[string]interface{}) error {
+    // init templates
+    if err := deviceTpls.Load(TemplatesDirectory); err != nil {
+        return err
+    }
+
     // for each element in input slice - create DeviceConfig structure
     for _, value := range devs {
         if err := c.parseDeviceEntry(value); err != nil {
-            return err;
+            return err
         }
     }
 
@@ -157,16 +280,20 @@ func (c *DaemonConfig) parseDevices(devs []map[string]interface{}) error {
 }
 
 // Try to get name from channel entry
-func getNameFromChannelEntry(entry *map[string]interface{}) (name string, err error) {
+func getNameFromEntry(entry *map[string]interface{}) (name string, err error) {
     err = nil
 
-    if nameEntry, ok := *entry["name"]; ok {
-        if name, valid := nameEntry.(string); !valid {
+    var valid bool
+
+    if nameEntry, ok := (*entry)["name"]; ok {
+        if name, valid = nameEntry.(string); !valid {
             err = fmt.Errorf("channel name must be string, %T given", nameEntry)
         }
     } else {
         err = fmt.Errorf("no channel name present")
     }
+
+    return
 }
 
 // Lay real data over device template
@@ -174,36 +301,43 @@ func (c *DaemonConfig) layConfigDataOverTemplate(entry *map[string]interface{}, 
     // rewrite all elements except 'channels'
     for key, value := range *devConfig {
         if key != "channels" {
-            *entry[key] = value
+            (*entry)[key] = value
         }
     }
 
     // merge channels
     // check channels list from template
-    var channelsList []map[string]interface{}
-    if channelsListEntry, ok := *entry["channels"]; ok {
-        if channelsList, valid := channelsListEntry.([]map[string]interface{}); !valid {
+    var channelsList []interface{}
+    var ok, valid bool
+    var channelsListEntry, devChannelsListEntry interface{}
+
+    if channelsListEntry, ok = (*entry)["channels"]; ok {
+        if channelsList, valid = channelsListEntry.([]interface{}); !valid {
             return fmt.Errorf("channels list must be array of objects; %T given", channelsListEntry)
         }
     }
 
     // check channels list from device description
-    var devChannelsList []map[string]interface{}
-    if devChannelsListEntry, ok := *devConfig; ok {
-        if devChannelsList, valid := devChannelsListEntry.([]map[string]interface{}); !valid {
-            return fmt.Errorf("channels list must be array of objects; %T given", channelsListEntry)
+    var devChannelsList []interface{}
+    if devChannelsListEntry, ok = (*devConfig)["channels"]; ok {
+        if devChannelsList, valid = devChannelsListEntry.([]interface{}); !valid {
+            return fmt.Errorf("channels list must be array of objects; %T given", devChannelsListEntry)
         }
     }
 
     // create merging map
-    var channelsMap map[string]map[string]interface{}
+    channelsMap := make(map[string]map[string]interface{})
 
-    createMap := func(l *[]map[string]interface{}, m *map[string]map[string]interface{}) error {
+    createMap := func(l *[]interface{}, m *map[string]map[string]interface{}) error {
         for _, chanEntry := range *l {
-            if name, err := getNameFromChannelEntry(&chanEntry); err == nil {
-                *m[name] = chanEntry
+            if channel, valid := chanEntry.(map[string]interface{}); valid {
+                if name, err := getNameFromEntry(&channel); err == nil {
+                    (*m)[name] = channel
+                } else {
+                    return err
+                }
             } else {
-                return err
+                return fmt.Errorf("channel config must be object, %T given", chanEntry)
             }
         }
 
@@ -214,66 +348,176 @@ func (c *DaemonConfig) layConfigDataOverTemplate(entry *map[string]interface{}, 
         return err
     }
 
+
     // merge devChannelsMap into channelsMap
-    for _, chanEntry := range devChannelsMap {
-        // get name
-        if name, err := getNameFromChannelEntry(&chanEntry); err == nil {
-            // check if this name is present in channel map
-            if _, present := channelsMap[name]; present {
-                // merge entries
-                for n, v := range chanEntry {
-                    channelsMap[name][n] = v
+    for _, chanEntry := range devChannelsList {
+
+        if channel, valid := chanEntry.(map[string]interface{}); valid {
+            // get name
+            if name, err := getNameFromEntry(&channel); err == nil {
+                // check if this name is present in channel map
+                if _, present := channelsMap[name]; present {
+                    // merge entries
+                    for n, v := range channel {
+                        channelsMap[name][n] = v
+                    }
+                } else {
+                    // create new entry
+                    channelsMap[name] = channel
                 }
             } else {
-                // create new entry
-                channelsMap[name] = chanEntry
+                return err
             }
         } else {
-            return err
+            return fmt.Errorf("channel config must be object, %T given", chanEntry)
         }
     }
 
 
+    // expose channelsMap to entry
+    chanList := make([]map[string]interface{}, len(channelsMap))
+    i := 0
+    for _, value := range channelsMap {
+        chanList[i] = value
+        i += 1
+    }
+
+    (*entry)["channels"] = chanList
+
     return nil
 }
+
 
 // Parse single device entry
 func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error {
 
-    // Get device type and apply template first
-    if !deviceTpls.Valid {
-        deviceTpls.Load(TemplatesDirectory)
-    }
-
     // Get device type and apply template to it
     var devType string
-    var devEntry map[string]interface{}
+    devEntry := make(map[string]interface{})
+    var valid bool
 
     // device_type is optional; if not present, just don't apply template
     if devTypeEntry, ok := devConfig["device_type"]; ok {
-        if devType, valid := devTypeEntry.(string); valid {
-            deviceTpls.InitEntry(devType, &devEntry)
+        if devType, valid = devTypeEntry.(string); valid {
+            if err := deviceTpls.InitEntry(devType, &devEntry); err != nil {
+                return err
+            }
         } else {
             return fmt.Errorf("device_type must be string, but %T given", devTypeEntry)
         }
     }
 
     // Lay config data over template
-    layConfigDataOverTemplate(&devEntry, &devConfig)
+    if err := c.layConfigDataOverTemplate(&devEntry, &devConfig); err != nil {
+        return err
+    }
 
     // Parse whole tree
-    d := DeviceConfig{}
+    d := NewEmptyDeviceConfig()
 
-    // insert device name
-    if devNameEntry, ok := devConfig["name"]; ok {
-        if devName, valid := devNameEntry.(string); valid {
-            d.Name = devName;
+    // insert entries in a hard way
+    // address field is required
+    if err := copyString(&devEntry, "address", &(d.Address), true); err != nil {
+        return err
+    }
+    // fill default values for name and id
+    d.Name = "SNMP " + d.Address
+    d.Id = "snmp_" + d.Address
+
+    if err := copyString(&devEntry, "name", &(d.Name), false); err != nil {
+        return err
+    }
+    if err := copyString(&devEntry, "id", &(d.Id), false); err != nil {
+        return err
+    }
+    if err := copyString(&devEntry, "device_type", &(d.DeviceType), false); err != nil {
+        return err
+    }
+    if err := copySnmpVersion(&devEntry, "snmp_version", &(d.SnmpVersion), false); err != nil {
+        return err
+    }
+    if err := copyInt(&devEntry, "snmp_timeout", &(d.SnmpTimeout), false); err != nil {
+        return err
+    }
+
+    // parse channels
+    if channelsEntry, ok := devEntry["channels"]; ok {
+        if channels, valid := channelsEntry.([]map[string]interface{}); valid {
+            if err := d.parseChannels(channels); err != nil {
+                return err
+            }
         } else {
-            return fmt.Errorf("name must be string, but %T given", devNameEntry)
+            return fmt.Errorf("channels list in %s must be array of objects, %T given", d.Name, channelsEntry)
         }
     } else {
-        return fmt.Errorf("name is required in device description")
+        return fmt.Errorf("channels list is not present for %s", d.Name)
     }
+
+    // append device to list
+    c.Devices = append(c.Devices, d)
+
+    return nil
+}
+
+// Parse channels list
+func (d *DeviceConfig) parseChannels(chans []map[string]interface{}) error {
+    // for each element in input slice - create ChannelConfig structure and append to DeviceConfig
+    if len(chans) == 0 {
+        return fmt.Errorf("channels list is empty for %s", d.Name)
+    }
+
+    for _, value := range chans {
+        if err := d.parseChannelEntry(value); err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+
+// Parse single channel entry
+func (d *DeviceConfig) parseChannelEntry(channel map[string]interface{}) error {
+    // create channel config struct
+    c := NewEmptyChannelConfig()
+
+    // fill channel config
+    //
+    // name is required
+    if err := copyString(&channel, "name", &(c.Name), true); err != nil {
+        return err
+    }
+
+    // oid is required
+    if err := copyString(&channel, "oid", &(c.Oid), true); err != nil {
+        return err
+    }
+
+    // control type is optional
+    if err := copyString(&channel, "control_type", &(c.ControlType), false); err != nil {
+        return err
+    }
+
+    // converter is an optional function depends on control type
+    // now scale function is presented only
+    if _, ok := channel["scale"]; ok {
+        if !isNumericControlType(c.ControlType) {
+            return fmt.Errorf("scale could be applied only to numeric control type")
+        } else {
+            var scale float64
+            if err := copyFloat64(&channel, "scale", &scale, false); err != nil {
+                return err
+            }
+            c.Conv = Scale(scale)
+        }
+    }
+
+    // poll interval is optional
+    if err := copyInt(&channel, "poll_interval", &(c.PollInterval), false); err != nil {
+        return err
+    }
+
+    // append channel config to device
+    d.Channels = append(d.Channels, c)
 
     return nil
 }
