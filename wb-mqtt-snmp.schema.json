@@ -54,26 +54,32 @@
           "_format": "checkbox",
           "propertyOrder": 50
         },
+        "community": {
+          "type": "string",
+          "title": "SNMP community string",
+          "description": "Community string aka password",
+          "propertyOrder": 60
+        },
         "snmp_version": {
           "type": "string",
           "title": "SNMP protocol version for device",
           "enum": [ "1", "2c" ],
           "default": "2c",
-          "propertyOrder": 60
+          "propertyOrder": 70
         },
         "snmp_timeout": {
           "type": "integer",
           "title": "SNMP timeout (in seconds)",
           "minimum": 0,
           "default": 5,
-          "propertyOrder": 70
+          "propertyOrder": 80
         },
         "channels": {
           "type": "array",
           "title": "List of channels",
           "description": "List device variables and their corresponding controls",
           "items": { "$ref": "#/definitions/channel" },
-          "propertyOrder": 80
+          "propertyOrder": 90
         }
       },
       

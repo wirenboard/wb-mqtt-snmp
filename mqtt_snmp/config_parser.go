@@ -19,7 +19,7 @@ const (
     TemplatesDirectory = "./templates"
 
     // Template file regexp
-    TemplatesFileMask = ".*\\.json"
+    TemplatesFileMask = "config-.*\\.json"
 
     // Environmental variable that tells which directories to search
     // for template files. List is colon-separated.
@@ -146,7 +146,7 @@ type ChannelConfig struct {
 }
 
 type DeviceConfig struct {
-    Name, Id, Address, DeviceType string
+    Name, Id, Address, DeviceType, Community string
     SnmpVersion gosnmp.SnmpVersion
     SnmpTimeout int
     Channels []ChannelConfig
@@ -391,6 +391,17 @@ func (c *DaemonConfig) layConfigDataOverTemplate(entry *map[string]interface{}, 
 // Parse single device entry
 func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error {
 
+    // Check if device is enabled and skip if not
+    if enableEntry, ok := devConfig["enabled"]; ok {
+        if enableValue, valid := enableEntry.(bool); valid {
+            if !enableValue {
+                return nil     // device is disabled, nothing to do here
+            }
+        } else {
+            return fmt.Errorf("'enable' must be bool, %T given", enableEntry)
+        }
+    } // if 'enable' is not presented, think that device is enabled by default
+
     // Get device type and apply template to it
     var devType string
     devEntry := make(map[string]interface{})
@@ -431,6 +442,9 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
         return err
     }
     if err := copyString(&devEntry, "device_type", &(d.DeviceType), false); err != nil {
+        return err
+    }
+    if err := copyString(&devEntry, "community", &(d.Community), true); err != nil {
         return err
     }
     if err := copySnmpVersion(&devEntry, "snmp_version", &(d.SnmpVersion), false); err != nil {
