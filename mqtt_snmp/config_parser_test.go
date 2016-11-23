@@ -23,11 +23,20 @@ type ConfigParserSuite struct {
 	oldDirRm func()
 }
 
-// Check if two DaemonConfig structures are equal
-func DaemonConfigsEqual(a, b *DaemonConfig) bool {
+// Check if two DaemonConfig structures are equal (verbose version)
+func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 	// check debug field
 	if a.Debug != b.Debug {
-		log.Print("debug mismatch")
+		if verbose {
+			log.Print("debug mismatch")
+		}
+		return false
+	}
+
+	if len(a.Devices) != len(b.Devices) {
+		if verbose {
+			log.Print("devices number mismatch")
+		}
 		return false
 	}
 
@@ -54,10 +63,12 @@ func DaemonConfigsEqual(a, b *DaemonConfig) bool {
 			dvalue.Community != b_dvalue.Community ||
 			dvalue.SnmpTimeout != b_dvalue.SnmpTimeout ||
 			dvalue.SnmpVersion != b_dvalue.SnmpVersion {
-			log.Printf("device %s configuration mismatch", dkey)
-			log.Printf("%+v", dvalue)
-			log.Print("vs.")
-			log.Printf("%+v", b_dvalue)
+			if verbose {
+				log.Printf("device %s configuration mismatch", dkey)
+				log.Printf("%+v", dvalue)
+				log.Print("vs.")
+				log.Printf("%+v", b_dvalue)
+			}
 			return false
 		}
 
@@ -66,7 +77,9 @@ func DaemonConfigsEqual(a, b *DaemonConfig) bool {
 			var b_cvalue ChannelConfig
 
 			if b_cvalue, ok = b.Devices[dkey].Channels[ckey]; !ok {
-				log.Printf("device %s channel %s doesn't exist in another", dkey, ckey)
+				if verbose {
+					log.Printf("device %s channel %s doesn't exist in another", dkey, ckey)
+				}
 				return false
 			}
 
@@ -74,23 +87,47 @@ func DaemonConfigsEqual(a, b *DaemonConfig) bool {
 			if cvalue.Name != b_cvalue.Name ||
 				cvalue.Oid != b_cvalue.Oid ||
 				cvalue.ControlType != b_cvalue.ControlType ||
-				cvalue.PollInterval != b_cvalue.PollInterval ||
-				reflect.ValueOf(cvalue.Conv) != reflect.ValueOf(b_cvalue.Conv) {
-				log.Printf("device %s channel %s configuration mismatch", dkey, ckey)
-				log.Printf("%+v", cvalue)
-				log.Print("vs.")
-				log.Printf("%+v", b_cvalue)
+				cvalue.PollInterval != b_cvalue.PollInterval {
+				if verbose {
+					log.Printf("device %s channel %s configuration mismatch", dkey, ckey)
+					log.Printf("%+v", cvalue)
+					log.Print("vs.")
+					log.Printf("%+v", b_cvalue)
+				}
 				return false
+			}
+
+			// check function pointer
+			if reflect.ValueOf(cvalue.Conv).Pointer() != reflect.ValueOf(b_cvalue.Conv).Pointer() {
+				if verbose {
+					log.Printf("device %s channel %s convertion function mismatch", dkey, ckey)
+					log.Printf("%v", reflect.ValueOf(cvalue.Conv))
+					log.Print("vs.")
+					log.Printf("%v", reflect.ValueOf(b_cvalue.Conv))
+				}
+				return false
+			}
+
+			// check function param for Scale
+			if reflect.ValueOf(cvalue.Conv).Pointer() == reflect.ValueOf(Scale(1)).Pointer() {
+				if cvalue.Conv("1") != b_cvalue.Conv("1") {
+					if verbose {
+						log.Printf("device %s channel %s Scale() function coefficient mismatch", dkey, ckey)
+						log.Printf("%s", cvalue.Conv("1"))
+						log.Print("vs.")
+						log.Printf("%s", b_cvalue.Conv("1"))
+					}
+					return false
+				}
 			}
 		}
 	}
 
-	if len(a.Devices) != len(b.Devices) {
-		log.Print("devices number mismatch")
-		return false
-	}
-
 	return true
+}
+
+func DaemonConfigsEqual(a, b *DaemonConfig) bool {
+	return DaemonConfigsEqualVerbose(a, b, false)
 }
 
 // Create default templates file just to check if all works fine
@@ -182,7 +219,9 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 				"channels": [
 					{
 						"name": "Temperature",
-						"oid": ".1.2.3"
+						"oid": ".1.2.3",
+						"control_type": "value",
+						"scale": 0.1
 					}
 				]
 			}
@@ -213,7 +252,7 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 						Name:         "Temperature",
 						Oid:          ".1.2.3",
 						ControlType:  "value",
-						Conv:         AsIs,
+						Conv:         Scale(0.1),
 						PollInterval: 1000,
 					},
 					"channel1": ChannelConfig{
@@ -236,11 +275,11 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 	}
 
 	// compare fields
-	s.Equal(true, DaemonConfigsEqual(res, &expect))
+	s.Equal(true, DaemonConfigsEqualVerbose(res, &expect, true))
 }
 
-func (s *ConfigParserSuite) TestFeatureTwo() {
-
+func (s *ConfigParserSuite) TestLostItems() {
+	// skip
 }
 
 func TestConfigParser(t *testing.T) {
