@@ -21,14 +21,6 @@ const (
 	// Template file regexp
 	TemplatesFileMask = "config-.*\\.json"
 
-	// Environmental variable that tells which directories to search
-	// for template files. List is colon-separated.
-	// For example, "/tmp/templates:/home/user/templates"
-	// Default directory will be attached to the end of this list
-	// TemplatesEnvVar = "MQTT_SNMP_TEMPLATES_DIR"
-
-	floatEps = 0.00001 // epsilon to compare floats
-
 	// Default poll interval for channels
 	DefaultChannelPollInterval = 1000
 
@@ -40,6 +32,8 @@ const (
 
 	// Default SNMP timeout (ms)
 	DefaultSnmpTimeout = 1000
+
+	floatEps = 0.00001 // epsilon to compare floats
 )
 
 // Device templates storage type
@@ -151,14 +145,18 @@ type DeviceConfig struct {
 	Name, Id, Address, DeviceType, Community string
 	SnmpVersion                              gosnmp.SnmpVersion
 	SnmpTimeout                              int
-	Channels                                 []ChannelConfig
+
+	// Channels is map from channel names
+	Channels map[string]ChannelConfig
 }
 
 // Whole daemon configuration structure
 type DaemonConfig struct {
 	Debug     bool
 	templates deviceTemplatesStorage
-	Devices   []DeviceConfig
+
+	// Devices storage is map from device IDs
+	Devices map[string]DeviceConfig
 }
 
 // Load templates from directory into DaemonConfig storage
@@ -180,9 +178,10 @@ func NewDaemonConfig(input io.Reader, templatesDir string) (config *DaemonConfig
 	return
 }
 
-// Make empty device config
+// Make empty device config, fill it with
+// default configuration values such as SnmpVersion and SnmpTimeout
 func NewEmptyDeviceConfig() DeviceConfig {
-	d := DeviceConfig{SnmpVersion: DefaultSnmpVersion, SnmpTimeout: DefaultSnmpTimeout}
+	d := DeviceConfig{DeviceType: "", Community: "", SnmpVersion: DefaultSnmpVersion, SnmpTimeout: DefaultSnmpTimeout}
 	return d
 }
 
@@ -204,6 +203,7 @@ func (c *DaemonConfig) UnmarshalJSON(raw []byte) error {
 	}
 
 	c.Debug = root.Debug
+	c.Devices = make(map[string]DeviceConfig)
 
 	// parse devices config
 	return c.parseDevices(root.Devices)
@@ -445,7 +445,8 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 	if err := copyString(&devEntry, "address", &(d.Address), true); err != nil {
 		return err
 	}
-	// fill default values for name and id
+
+	// fill default values
 	d.Name = "SNMP " + d.Address
 	d.Id = "snmp_" + d.Address
 
@@ -458,7 +459,7 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 	if err := copyString(&devEntry, "device_type", &(d.DeviceType), false); err != nil {
 		return err
 	}
-	if err := copyString(&devEntry, "community", &(d.Community), true); err != nil {
+	if err := copyString(&devEntry, "community", &(d.Community), false); err != nil {
 		return err
 	}
 	if err := copySnmpVersion(&devEntry, "snmp_version", &(d.SnmpVersion), false); err != nil {
@@ -467,6 +468,8 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 	if err := copyInt(&devEntry, "snmp_timeout", &(d.SnmpTimeout), false); err != nil {
 		return err
 	}
+
+	d.Channels = make(map[string]ChannelConfig)
 
 	// parse channels
 	if channelsEntry, ok := devEntry["channels"]; ok {
@@ -481,8 +484,8 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 		return fmt.Errorf("channels list is not present for %s", d.Name)
 	}
 
-	// append device to list
-	c.Devices = append(c.Devices, d)
+	// append device to storage
+	c.Devices[d.Id] = d
 
 	return nil
 }
@@ -545,7 +548,7 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]interface{}) error {
 	}
 
 	// append channel config to device
-	d.Channels = append(d.Channels, c)
+	d.Channels[c.Name] = c
 
 	return nil
 }
