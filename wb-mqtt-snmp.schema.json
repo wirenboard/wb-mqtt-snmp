@@ -112,7 +112,7 @@
           "type": "string",
           "title": "Control type",
           "description": "Defaults to 'text'",
-          "enum": [ "text", "value", "temperature", "voltage", "power" ], // TODO: fill in control types
+          "enum": [ "text", "value", "temperature", "voltage", "power" ],
           "propertyOrder": 30
         },
 
@@ -131,7 +131,8 @@
           "default": 1000,
           "propertyOrder": 50
         }
-      }
+      },
+      "required": [ "name", "oid" ]
     }
   },
 
