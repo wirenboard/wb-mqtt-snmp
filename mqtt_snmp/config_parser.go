@@ -10,7 +10,6 @@ import (
 	"math"
 	"regexp"
 	"strconv"
-	// "log"
 )
 
 const (
@@ -97,9 +96,11 @@ func (tpl *deviceTemplatesStorage) Load(dir string) error {
 }
 
 // Initialize raw device entry using template
-func (tpl *deviceTemplatesStorage) InitEntry(devType string, entry *map[string]interface{}) error {
+func (tpl *deviceTemplatesStorage) InitEntry(devType string, entry map[string]interface{}) error {
 	if data, ok := tpl.templates[devType]; ok {
-		*entry = data
+		for key, value := range data {
+			entry[key] = value
+		}
 	} else {
 		return fmt.Errorf("no such template: %s", devType)
 	}
@@ -327,11 +328,11 @@ func getNameFromEntry(entry *map[string]interface{}) (name string, err error) {
 }
 
 // Lay real data over device template
-func (c *DaemonConfig) layConfigDataOverTemplate(entry *map[string]interface{}, devConfig *map[string]interface{}) error {
+func (c *DaemonConfig) layConfigDataOverTemplate(entry map[string]interface{}, devConfig map[string]interface{}) error {
 	// rewrite all elements except 'channels'
-	for key, value := range *devConfig {
+	for key, value := range devConfig {
 		if key != "channels" {
-			(*entry)[key] = value
+			entry[key] = value
 		}
 	}
 
@@ -341,7 +342,7 @@ func (c *DaemonConfig) layConfigDataOverTemplate(entry *map[string]interface{}, 
 	var ok, valid bool
 	var channelsListEntry, devChannelsListEntry interface{}
 
-	if channelsListEntry, ok = (*entry)["channels"]; ok {
+	if channelsListEntry, ok = entry["channels"]; ok {
 		if channelsList, valid = channelsListEntry.([]interface{}); !valid {
 			return fmt.Errorf("channels list must be array of objects; %T given", channelsListEntry)
 		}
@@ -349,7 +350,7 @@ func (c *DaemonConfig) layConfigDataOverTemplate(entry *map[string]interface{}, 
 
 	// check channels list from device description
 	var devChannelsList []interface{}
-	if devChannelsListEntry, ok = (*devConfig)["channels"]; ok {
+	if devChannelsListEntry, ok = devConfig["channels"]; ok {
 		if devChannelsList, valid = devChannelsListEntry.([]interface{}); !valid {
 			return fmt.Errorf("channels list must be array of objects; %T given", devChannelsListEntry)
 		}
@@ -358,11 +359,11 @@ func (c *DaemonConfig) layConfigDataOverTemplate(entry *map[string]interface{}, 
 	// create merging map
 	channelsMap := make(map[string]map[string]interface{})
 
-	createMap := func(l *[]interface{}, m *map[string]map[string]interface{}) error {
-		for _, chanEntry := range *l {
+	createMap := func(l []interface{}, m map[string]map[string]interface{}) error {
+		for _, chanEntry := range l {
 			if channel, valid := chanEntry.(map[string]interface{}); valid {
 				if name, err := getNameFromEntry(&channel); err == nil {
-					(*m)[name] = channel
+					m[name] = channel
 				} else {
 					return err
 				}
@@ -374,7 +375,7 @@ func (c *DaemonConfig) layConfigDataOverTemplate(entry *map[string]interface{}, 
 		return nil
 	}
 
-	if err := createMap(&channelsList, &channelsMap); err != nil {
+	if err := createMap(channelsList, channelsMap); err != nil {
 		return err
 	}
 
@@ -410,7 +411,7 @@ func (c *DaemonConfig) layConfigDataOverTemplate(entry *map[string]interface{}, 
 		i += 1
 	}
 
-	(*entry)["channels"] = chanList
+	entry["channels"] = chanList
 
 	return nil
 }
@@ -437,7 +438,7 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 	// device_type is optional; if not present, just don't apply template
 	if devTypeEntry, ok := devConfig["device_type"]; ok {
 		if devType, valid = devTypeEntry.(string); valid {
-			if err := c.templates.InitEntry(devType, &devEntry); err != nil {
+			if err := c.templates.InitEntry(devType, devEntry); err != nil {
 				return err
 			}
 		} else {
@@ -446,7 +447,7 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 	}
 
 	// Lay config data over template
-	if err := c.layConfigDataOverTemplate(&devEntry, &devConfig); err != nil {
+	if err := c.layConfigDataOverTemplate(devEntry, devConfig); err != nil {
 		return err
 	}
 
@@ -466,6 +467,11 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 	// fill default values
 	d.Name = "SNMP " + d.GenerateId()
 	d.Id = "snmp_" + d.GenerateId()
+
+	// check address collision
+	if _, ok := c.Devices[d.Id]; ok {
+		return fmt.Errorf("device address collision on %s", d.Id)
+	}
 
 	if err := copyString(&devEntry, "name", &(d.Name), false); err != nil {
 		return err

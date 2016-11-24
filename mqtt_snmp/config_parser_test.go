@@ -326,7 +326,6 @@ func (s *ConfigParserSuite) TestAddressCollision() {
 	}`
 
 	_, err := NewDaemonConfig(strings.NewReader(testConfig_1), ".")
-	log.Print(err)
 	s.Error(err, "config parser don't fail on device address collision")
 
 	// different communities on one address is not an error
