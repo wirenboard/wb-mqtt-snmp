@@ -348,6 +348,30 @@ func (s *ConfigParserSuite) TestAddressCollision() {
 	s.NoError(err, "config parser fail on no device address collision")
 }
 
+// Test channel names collision
+func (s *ConfigParserSuite) TestChannelsCollision() {
+	testConfig_1 := `{
+		"devices": [{
+			"address": "127.0.0.1",
+			"community": "foo",
+			"channels": [
+			{
+				"name": "channel1",
+				"oid": ".1.2.3.4"
+			},
+			{
+				"name": "channel1",
+				"oid": ".1.2.3.4"
+			}
+			]
+		}]
+	}`
+
+	var err error
+	_, err = NewDaemonConfig(strings.NewReader(testConfig_1), ".")
+	s.Error(err, "config parser don't fail on channel names collision")
+}
+
 func TestConfigParser(t *testing.T) {
 	s := new(ConfigParserSuite)
 

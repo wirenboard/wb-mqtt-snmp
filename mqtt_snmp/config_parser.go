@@ -328,41 +328,48 @@ func getNameFromEntry(entry *map[string]interface{}) (name string, err error) {
 }
 
 // Lay real data over device template
-func (c *DaemonConfig) layConfigDataOverTemplate(entry map[string]interface{}, devConfig map[string]interface{}) error {
+func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry map[string]interface{}, devEntry map[string]interface{}) error {
 	// rewrite all elements except 'channels'
-	for key, value := range devConfig {
+	for key, value := range devEntry {
 		if key != "channels" {
-			entry[key] = value
+			tplEntry[key] = value
 		}
 	}
 
 	// merge channels
 	// check channels list from template
-	var channelsList []interface{}
+	var tplChannelsList []interface{}
 	var ok, valid bool
-	var channelsListEntry, devChannelsListEntry interface{}
+	var tplChannelsListEntry, devChannelsListEntry interface{}
 
-	if channelsListEntry, ok = entry["channels"]; ok {
-		if channelsList, valid = channelsListEntry.([]interface{}); !valid {
-			return fmt.Errorf("channels list must be array of objects; %T given", channelsListEntry)
+	if tplChannelsListEntry, ok = tplEntry["channels"]; ok {
+		if tplChannelsList, valid = tplChannelsListEntry.([]interface{}); !valid {
+			return fmt.Errorf("channels list must be array of objects; %T given", tplChannelsListEntry)
 		}
 	}
 
 	// check channels list from device description
 	var devChannelsList []interface{}
-	if devChannelsListEntry, ok = devConfig["channels"]; ok {
+	if devChannelsListEntry, ok = devEntry["channels"]; ok {
 		if devChannelsList, valid = devChannelsListEntry.([]interface{}); !valid {
 			return fmt.Errorf("channels list must be array of objects; %T given", devChannelsListEntry)
 		}
 	}
 
 	// create merging map
-	channelsMap := make(map[string]map[string]interface{})
+	tplChannelsMap := make(map[string]map[string]interface{})
+	devChannelsMap := make(map[string]map[string]interface{})
 
 	createMap := func(l []interface{}, m map[string]map[string]interface{}) error {
 		for _, chanEntry := range l {
 			if channel, valid := chanEntry.(map[string]interface{}); valid {
 				if name, err := getNameFromEntry(&channel); err == nil {
+
+					// check name collision first
+					if _, ok := m[name]; ok {
+						return fmt.Errorf("channel name collision: %s", name)
+					}
+
 					m[name] = channel
 				} else {
 					return err
@@ -375,43 +382,37 @@ func (c *DaemonConfig) layConfigDataOverTemplate(entry map[string]interface{}, d
 		return nil
 	}
 
-	if err := createMap(channelsList, channelsMap); err != nil {
-		return err
+	if err := createMap(tplChannelsList, tplChannelsMap); err != nil {
+		return fmt.Errorf("template error: %s", err)
 	}
 
-	// merge devChannelsMap into channelsMap
-	for _, chanEntry := range devChannelsList {
+	if err := createMap(devChannelsList, devChannelsMap); err != nil {
+		return fmt.Errorf("config error: %s", err)
+	}
 
-		if channel, valid := chanEntry.(map[string]interface{}); valid {
-			// get name
-			if name, err := getNameFromEntry(&channel); err == nil {
-				// check if this name is present in channel map
-				if _, present := channelsMap[name]; present {
-					// merge entries
-					for n, v := range channel {
-						channelsMap[name][n] = v
-					}
-				} else {
-					// create new entry
-					channelsMap[name] = channel
-				}
-			} else {
-				return err
+	// merge devChannelsMap into tplChannelsMap
+	for name, channel := range devChannelsMap {
+		// check if this name is present in channel map
+		if _, present := tplChannelsMap[name]; present {
+			// merge entries
+			for n, v := range channel {
+				tplChannelsMap[name][n] = v
 			}
 		} else {
-			return fmt.Errorf("channel config must be object, %T given", chanEntry)
+			// create new entry
+			tplChannelsMap[name] = channel
 		}
 	}
 
 	// expose channelsMap to entry
-	chanList := make([]map[string]interface{}, len(channelsMap))
+	chanList := make([]map[string]interface{}, len(tplChannelsMap))
 	i := 0
-	for _, value := range channelsMap {
+	for _, value := range tplChannelsMap {
 		chanList[i] = value
 		i += 1
 	}
 
-	entry["channels"] = chanList
+	tplEntry["channels"] = chanList
 
 	return nil
 }
@@ -495,7 +496,7 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 	if channelsEntry, ok := devEntry["channels"]; ok {
 		if channels, valid := channelsEntry.([]map[string]interface{}); valid {
 			if err := d.parseChannels(channels); err != nil {
-				return err
+				return fmt.Errorf("channel parse error in %s: %s", d.Id, err)
 			}
 		} else {
 			return fmt.Errorf("channels list in %s must be array of objects, %T given", d.Id, channelsEntry)
