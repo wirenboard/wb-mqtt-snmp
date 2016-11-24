@@ -229,6 +229,30 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 						"poll_interval": 500
 					}
 				]
+			},
+			{
+				"address": "127.0.0.2",
+				"community": "test",
+				"device_type": "type2",
+				"snmp_version": "2c",
+				"channels": [
+					{
+						"name": "channel2",
+						"poll_interval": 500
+					}
+				]
+			},
+			{
+				"address": "192.168.0.1",
+				"community": "foo",
+				"snmp_version": "2c",
+				"enabled": false,
+				"channels": [
+					{
+						"name": "test",
+						"oid": ".1.2.3.4.5"
+					}
+				]
 			}
 		]
 	}`
@@ -240,7 +264,6 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 	res, err = NewDaemonConfig(r, "./")
 	s.Ck("failed to parse config", err)
 
-	// log.Printf("%+v", res)
 	expect := DaemonConfig{
 		Debug: false,
 		Devices: map[string]DeviceConfig{
@@ -276,6 +299,31 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 					},
 				},
 			},
+			"snmp_127.0.0.2_test": DeviceConfig{
+				Name:        "SNMP 127.0.0.2_test",
+				Id:          "snmp_127.0.0.2_test",
+				Address:     "127.0.0.2",
+				DeviceType:  "type2",
+				Community:   "test",
+				SnmpVersion: gosnmp.Version2c,
+				SnmpTimeout: 1000,
+				Channels: map[string]ChannelConfig{
+					"channel1": ChannelConfig{
+						Name:         "channel1",
+						Oid:          ".1.2.3.4.4",
+						ControlType:  "value",
+						Conv:         AsIs,
+						PollInterval: 1000,
+					},
+					"channel2": ChannelConfig{
+						Name:         "channel2",
+						Oid:          ".1.2.3.4.5",
+						ControlType:  "value",
+						Conv:         AsIs,
+						PollInterval: 500,
+					},
+				},
+			},
 		},
 	}
 
@@ -294,7 +342,7 @@ func (s *ConfigParserSuite) TestNoDevices() {
 	}`
 
 	_, err := NewDaemonConfig(strings.NewReader(testConfig), ".")
-	s.Error(err, "config parser don't fail on empty devices list")
+	s.Error(err, "config parser doesn't fail on empty devices list")
 }
 
 // Fail on empty channels list
@@ -307,7 +355,7 @@ func (s *ConfigParserSuite) TestNoChannels() {
 	}`
 
 	_, err := NewDaemonConfig(strings.NewReader(testConfig), ".")
-	s.Error(err, "config parser don't fail on empty channels list")
+	s.Error(err, "config parser doesn't fail on empty channels list")
 }
 
 // Fail on address collision
@@ -326,7 +374,7 @@ func (s *ConfigParserSuite) TestAddressCollision() {
 	}`
 
 	_, err := NewDaemonConfig(strings.NewReader(testConfig_1), ".")
-	s.Error(err, "config parser don't fail on device address collision")
+	s.Error(err, "config parser doesn't fail on device address collision")
 
 	// different communities on one address is not an error
 	testConfig_2 := `{
@@ -369,7 +417,49 @@ func (s *ConfigParserSuite) TestChannelsCollision() {
 
 	var err error
 	_, err = NewDaemonConfig(strings.NewReader(testConfig_1), ".")
-	s.Error(err, "config parser don't fail on channel names collision")
+	s.Error(err, "config parser doesn't fail on channel names collision")
+}
+
+// Test missing parameters
+func (s *ConfigParserSuite) TestMissingParams() {
+	var err error
+
+	// missing device address
+	testConfigDevAddr := `{
+		"devices": [{
+			"community": "foo",
+			"device_type": "type2"
+		}]
+	}`
+
+	_, err = NewDaemonConfig(strings.NewReader(testConfigDevAddr), ".")
+	s.Error(err, "config parser doesn't fail on device address missing")
+
+	// missing channel name
+	testConfigChanName := `{
+		"devices": [{
+			"address": "127.0.0.1",
+			"channels": [{
+				"oid": ".1.2.3"
+			}]
+		}]
+	}`
+
+	_, err = NewDaemonConfig(strings.NewReader(testConfigChanName), ".")
+	s.Error(err, "config parser doesn't fail on channel name missing")
+
+	// missing channel OID
+	testConfigChanOid := `{
+		"devices": [{
+			"address": "127.0.0.1",
+			"channels": [{
+				"name": "foo"
+			}]
+		}]
+	}`
+
+	_, err = NewDaemonConfig(strings.NewReader(testConfigChanOid), ".")
+	s.Error(err, "config parser doesn't fail on channel OID missing")
 }
 
 func TestConfigParser(t *testing.T) {
