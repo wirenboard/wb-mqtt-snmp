@@ -150,6 +150,15 @@ type DeviceConfig struct {
 	Channels map[string]ChannelConfig
 }
 
+// Get device ID from community string and address
+func (d *DeviceConfig) GenerateId() string {
+	if d.Community != "" {
+		return d.Address + "_" + d.Community
+	} else {
+		return d.Address
+	}
+}
+
 // Whole daemon configuration structure
 type DaemonConfig struct {
 	Debug     bool
@@ -286,6 +295,10 @@ func copyFloat64(fromMap *map[string]interface{}, key string, to *float64, requi
 
 // Parse devices list
 func (c *DaemonConfig) parseDevices(devs []map[string]interface{}) error {
+	if len(devs) == 0 {
+		return fmt.Errorf("devices list is empty")
+	}
+
 	// for each element in input slice - create DeviceConfig structure
 	for _, value := range devs {
 		if err := c.parseDeviceEntry(value); err != nil {
@@ -446,9 +459,13 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 		return err
 	}
 
+	if err := copyString(&devEntry, "community", &(d.Community), false); err != nil {
+		return err
+	}
+
 	// fill default values
-	d.Name = "SNMP " + d.Address
-	d.Id = "snmp_" + d.Address
+	d.Name = "SNMP " + d.GenerateId()
+	d.Id = "snmp_" + d.GenerateId()
 
 	if err := copyString(&devEntry, "name", &(d.Name), false); err != nil {
 		return err
@@ -457,9 +474,6 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 		return err
 	}
 	if err := copyString(&devEntry, "device_type", &(d.DeviceType), false); err != nil {
-		return err
-	}
-	if err := copyString(&devEntry, "community", &(d.Community), false); err != nil {
 		return err
 	}
 	if err := copySnmpVersion(&devEntry, "snmp_version", &(d.SnmpVersion), false); err != nil {
@@ -478,10 +492,10 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 				return err
 			}
 		} else {
-			return fmt.Errorf("channels list in %s must be array of objects, %T given", d.Name, channelsEntry)
+			return fmt.Errorf("channels list in %s must be array of objects, %T given", d.Id, channelsEntry)
 		}
 	} else {
-		return fmt.Errorf("channels list is not present for %s", d.Name)
+		return fmt.Errorf("channels list is not present for %s", d.Id)
 	}
 
 	// append device to storage
@@ -494,7 +508,7 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 func (d *DeviceConfig) parseChannels(chans []map[string]interface{}) error {
 	// for each element in input slice - create ChannelConfig structure and append to DeviceConfig
 	if len(chans) == 0 {
-		return fmt.Errorf("channels list is empty for %s", d.Name)
+		return fmt.Errorf("channels list is empty for %s", d.Id)
 	}
 
 	for _, value := range chans {
