@@ -7,5 +7,5 @@ Build-Depends: debhelper (>= 9), pkg-config
 
 Package: wb-mqtt-snmp
 Architecture: any
-Depends: libc6 (>= 2.13), snmp, ${misc:Depends}
+Depends: libc6 (>= 2.13), snmp (>= 5.4.3), ${misc:Depends}
 Description: Wiren Board MQTT to SNMP gateway
