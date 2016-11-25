@@ -10,6 +10,7 @@ import (
 	"math"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -144,6 +145,7 @@ type ChannelConfig struct {
 
 type DeviceConfig struct {
 	Name, Id, Address, DeviceType, Community string
+	OidPrefix                                string
 	SnmpVersion                              gosnmp.SnmpVersion
 	SnmpTimeout                              int
 
@@ -191,7 +193,7 @@ func NewDaemonConfig(input io.Reader, templatesDir string) (config *DaemonConfig
 // Make empty device config, fill it with
 // default configuration values such as SnmpVersion and SnmpTimeout
 func NewEmptyDeviceConfig() DeviceConfig {
-	d := DeviceConfig{DeviceType: "", Community: "", SnmpVersion: DefaultSnmpVersion, SnmpTimeout: DefaultSnmpTimeout}
+	d := DeviceConfig{DeviceType: "", Community: "", SnmpVersion: DefaultSnmpVersion, SnmpTimeout: DefaultSnmpTimeout, OidPrefix: ""}
 	return d
 }
 
@@ -489,6 +491,9 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 	if err := copyInt(&devEntry, "snmp_timeout", &(d.SnmpTimeout), false); err != nil {
 		return err
 	}
+	if err := copyString(&devEntry, "oid_prefix", &(d.OidPrefix), false); err != nil {
+		return err
+	}
 
 	d.Channels = make(map[string]ChannelConfig)
 
@@ -542,6 +547,12 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]interface{}) error {
 	// oid is required
 	if err := copyString(&channel, "oid", &(c.Oid), true); err != nil {
 		return err
+	}
+
+	// process OID prefix
+	// only if it is defined, name is from MIB and there's no prefix in name
+	if d.OidPrefix != "" && c.Oid[0] != '.' && !strings.Contains(c.Oid, "::") {
+		c.Oid = d.OidPrefix + "::" + c.Oid
 	}
 
 	// control type is optional

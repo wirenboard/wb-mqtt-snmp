@@ -331,6 +331,79 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 	s.Equal(true, DaemonConfigsEqualVerbose(res, &expect, true))
 }
 
+// Test OID prefix
+func (s *ConfigParserSuite) TestOidPrefix() {
+	var res *DaemonConfig
+	var err error
+	testConfig := `{
+		"devices": [{
+			"address": "127.0.0.1",
+			"oid_prefix": "SNMPv2-MIB",
+			"channels": [
+				{
+					"name": "channel1",
+					"oid": "sysDescr.0"
+				},
+				{
+					"name": "channel2",
+					"oid": ".1.2.3.4.5"
+				},
+				{
+					"name": "channel3",
+					"oid": "DISMAN-EVENT-MIB::sysUpTimeInstance"
+				}
+			]
+		}]
+	}`
+
+	r := strings.NewReader(testConfig)
+
+	res, err = NewDaemonConfig(r, ".")
+	s.Ck("failed to parse config", err)
+
+	expect := DaemonConfig{
+		Debug: false,
+		Devices: map[string]DeviceConfig{
+			"snmp_127.0.0.1": DeviceConfig{
+				Name:        "SNMP 127.0.0.1",
+				Id:          "snmp_127.0.0.1",
+				Address:     "127.0.0.1",
+				DeviceType:  "",
+				Community:   "",
+				OidPrefix:   "SNMPv2-MIB",
+				SnmpVersion: gosnmp.Version2c,
+				SnmpTimeout: 1000,
+				Channels: map[string]ChannelConfig{
+					"channel1": ChannelConfig{
+						Name:         "channel1",
+						Oid:          "SNMPv2-MIB::sysDescr.0",
+						ControlType:  "value",
+						Conv:         AsIs,
+						PollInterval: 1000,
+					},
+					"channel2": ChannelConfig{
+						Name:         "channel2",
+						Oid:          ".1.2.3.4.5",
+						ControlType:  "value",
+						Conv:         AsIs,
+						PollInterval: 1000,
+					},
+					"channel3": ChannelConfig{
+						Name:         "channel3",
+						Oid:          "DISMAN-EVENT-MIB::sysUpTimeInstance",
+						ControlType:  "value",
+						Conv:         AsIs,
+						PollInterval: 1000,
+					},
+				},
+			},
+		},
+	}
+
+	// compare fields
+	s.Equal(true, DaemonConfigsEqualVerbose(res, &expect, true))
+}
+
 //
 // Test skipped parameters
 
