@@ -5,6 +5,7 @@ package mqtt_snmp
 
 import (
 	"fmt"
+	"log"
 	"os/exec"
 	"strings"
 )
@@ -17,10 +18,11 @@ func TranslateOids(oids []string) (out map[string]string, err error) {
 	var raw_out []byte
 
 	// call snmptranslate
+	log.Printf("command to run: snmptranslate %#v -On", oids)
 	raw_out, err = exec.Command("snmptranslate", append(oids, "-On")...).Output()
 
 	if err != nil {
-		err = fmt.Errorf("error translating OIDs: %s", err)
+		err = fmt.Errorf("error translating OIDs: %s", string(raw_out))
 		return
 	}
 
@@ -29,7 +31,7 @@ func TranslateOids(oids []string) (out map[string]string, err error) {
 	split := strings.Split(string(raw_out), "\n\n")
 
 	for i, value := range oids {
-		out[value] = split[i]
+		out[value] = strings.Trim(split[i], " \n")
 	}
 
 	return
@@ -46,10 +48,12 @@ func TranslateOidsInDaemonConfig(config *DaemonConfig) error {
 		}
 	}
 
-	oids_list := make([]string, len(oids_set)+1) // +1 for TranslateOids (for not to waste time on reallocations)
+	oids_list := make([]string, len(oids_set), len(oids_set)+1) // +1 for TranslateOids (for not to waste time on reallocations)
 
+	i := 0
 	for key, _ := range oids_set {
-		oids_list = append(oids_list, key)
+		oids_list[i] = key
+		i += 1
 	}
 
 	// parse list
@@ -59,9 +63,12 @@ func TranslateOidsInDaemonConfig(config *DaemonConfig) error {
 	}
 
 	// translate OIDs in config
-	for _, device := range config.Devices {
-		for _, channel := range device.Channels {
-			channel.Oid = tmap[channel.Oid]
+	for dev_key, device := range config.Devices {
+		for ch_key, _ := range device.Channels {
+			// TODO: it's a Go bullshit' workaround
+			tmp := config.Devices[dev_key].Channels[ch_key]
+			tmp.Oid = tmap[tmp.Oid]
+			config.Devices[dev_key].Channels[ch_key] = tmp
 		}
 	}
 

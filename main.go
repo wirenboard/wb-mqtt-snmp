@@ -24,9 +24,15 @@ func main() {
 		log.Fatalf("Can't read file %s: %s", config_file, err.Error())
 	}
 
+	// read config
 	var cfg *m.DaemonConfig
-	if cfg, err = m.NewDaemonConfig(r, "../templates/"); err != nil {
+	if cfg, err = m.NewDaemonConfig(r, "./templates/"); err != nil {
 		log.Fatalf("Error parsing JSON file %s: %s", config_file, err)
+	}
+
+	// translate OIDs
+	if err = m.TranslateOidsInDaemonConfig(cfg); err != nil {
+		log.Fatalf("Error translating OIDs: %s", err)
 	}
 
 	log.Printf("Config: %+v", *cfg)
