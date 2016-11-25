@@ -1,0 +1,4 @@
+#!/bin/sh
+
+update-rc.d wb-mqtt-snmp defaults
+invoke-rc.d wb-mqtt-snmp start
