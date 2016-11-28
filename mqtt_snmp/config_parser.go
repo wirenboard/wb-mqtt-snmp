@@ -141,6 +141,7 @@ type ChannelConfig struct {
 	Name, Oid, ControlType string
 	Conv                   ValueConverter
 	PollInterval           int
+	Device                 *DeviceConfig
 }
 
 type DeviceConfig struct {
@@ -580,6 +581,7 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]interface{}) error {
 	}
 
 	// append channel config to device
+	c.Device = d
 	d.Channels[c.Name] = c
 
 	return nil
