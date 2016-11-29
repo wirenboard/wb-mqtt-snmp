@@ -2,9 +2,9 @@ package mqtt_snmp
 
 import (
 	"github.com/alouca/gosnmp"
+	"github.com/contactless/wbgo"
 	"github.com/contactless/wbgo/testutils"
 	"io/ioutil"
-	"log"
 	"os"
 	"reflect"
 	"strings"
@@ -28,14 +28,14 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 	// check debug field
 	if a.Debug != b.Debug {
 		if verbose {
-			log.Print("debug mismatch")
+			wbgo.Debug.Print("debug mismatch")
 		}
 		return false
 	}
 
 	if len(a.Devices) != len(b.Devices) {
 		if verbose {
-			log.Print("devices number mismatch")
+			wbgo.Debug.Print("devices number mismatch")
 		}
 		return false
 	}
@@ -46,12 +46,12 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 		var ok bool
 
 		if b_dvalue, ok = b.Devices[dkey]; !ok {
-			log.Printf("device %s doesn't exist in another", dkey)
+			wbgo.Debug.Printf("device %s doesn't exist in another", dkey)
 			return false
 		}
 
 		if len(a.Devices[dkey].Channels) != len(b.Devices[dkey].Channels) {
-			log.Printf("device %s number of channel mismatch", dkey)
+			wbgo.Debug.Printf("device %s number of channel mismatch", dkey)
 			return false
 		}
 
@@ -64,10 +64,10 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 			dvalue.SnmpTimeout != b_dvalue.SnmpTimeout ||
 			dvalue.SnmpVersion != b_dvalue.SnmpVersion {
 			if verbose {
-				log.Printf("device %s configuration mismatch", dkey)
-				log.Printf("%+v", dvalue)
-				log.Print("vs.")
-				log.Printf("%+v", b_dvalue)
+				wbgo.Debug.Printf("device %s configuration mismatch", dkey)
+				wbgo.Debug.Printf("%+v", dvalue)
+				wbgo.Debug.Print("vs.")
+				wbgo.Debug.Printf("%+v", b_dvalue)
 			}
 			return false
 		}
@@ -78,7 +78,7 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 
 			if b_cvalue, ok = b.Devices[dkey].Channels[ckey]; !ok {
 				if verbose {
-					log.Printf("device %s channel %s doesn't exist in another", dkey, ckey)
+					wbgo.Debug.Printf("device %s channel %s doesn't exist in another", dkey, ckey)
 				}
 				return false
 			}
@@ -89,10 +89,10 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 				cvalue.ControlType != b_cvalue.ControlType ||
 				cvalue.PollInterval != b_cvalue.PollInterval {
 				if verbose {
-					log.Printf("device %s channel %s configuration mismatch", dkey, ckey)
-					log.Printf("%+v", cvalue)
-					log.Print("vs.")
-					log.Printf("%+v", b_cvalue)
+					wbgo.Debug.Printf("device %s channel %s configuration mismatch", dkey, ckey)
+					wbgo.Debug.Printf("%+v", cvalue)
+					wbgo.Debug.Print("vs.")
+					wbgo.Debug.Printf("%+v", b_cvalue)
 				}
 				return false
 			}
@@ -100,10 +100,10 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 			// check function pointer
 			if reflect.ValueOf(cvalue.Conv).Pointer() != reflect.ValueOf(b_cvalue.Conv).Pointer() {
 				if verbose {
-					log.Printf("device %s channel %s convertion function mismatch", dkey, ckey)
-					log.Printf("%v", reflect.ValueOf(cvalue.Conv))
-					log.Print("vs.")
-					log.Printf("%v", reflect.ValueOf(b_cvalue.Conv))
+					wbgo.Debug.Printf("device %s channel %s convertion function mismatch", dkey, ckey)
+					wbgo.Debug.Printf("%v", reflect.ValueOf(cvalue.Conv))
+					wbgo.Debug.Print("vs.")
+					wbgo.Debug.Printf("%v", reflect.ValueOf(b_cvalue.Conv))
 				}
 				return false
 			}
@@ -112,10 +112,10 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 			if reflect.ValueOf(cvalue.Conv).Pointer() == reflect.ValueOf(Scale(1)).Pointer() {
 				if cvalue.Conv("1") != b_cvalue.Conv("1") {
 					if verbose {
-						log.Printf("device %s channel %s Scale() function coefficient mismatch", dkey, ckey)
-						log.Printf("%s", cvalue.Conv("1"))
-						log.Print("vs.")
-						log.Printf("%s", b_cvalue.Conv("1"))
+						wbgo.Debug.Printf("device %s channel %s Scale() function coefficient mismatch", dkey, ckey)
+						wbgo.Debug.Printf("%s", cvalue.Conv("1"))
+						wbgo.Debug.Print("vs.")
+						wbgo.Debug.Printf("%s", b_cvalue.Conv("1"))
 					}
 					return false
 				}
@@ -132,7 +132,6 @@ func DaemonConfigsEqual(a, b *DaemonConfig) bool {
 
 // Create default templates file just to check if all works fine
 func (s *ConfigParserSuite) createDefaultTemplates() (err error) {
-
 	// let us start from 3 basic templates
 	tpl1 := `{
 		"device_type": "type1",
@@ -190,7 +189,7 @@ func (s *ConfigParserSuite) SetupTestFixture(t *testing.T) {
 	// create temp dir
 	s.tempDir, s.oldDirRm = testutils.SetupTempDir(t)
 
-	log.Printf("Created test temp dir %s", s.tempDir)
+	wbgo.Debug.Printf("Created test temp dir %s", s.tempDir)
 
 	s.Ck("can't create default templates", s.createDefaultTemplates())
 }
