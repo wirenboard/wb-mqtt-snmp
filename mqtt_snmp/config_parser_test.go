@@ -42,7 +42,7 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 
 	// check devices map
 	for dkey, dvalue := range a.Devices {
-		var b_dvalue DeviceConfig
+		var b_dvalue *DeviceConfig
 		var ok bool
 
 		if b_dvalue, ok = b.Devices[dkey]; !ok {
@@ -74,7 +74,7 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 
 		// check channels
 		for ckey, cvalue := range a.Devices[dkey].Channels {
-			var b_cvalue ChannelConfig
+			var b_cvalue *ChannelConfig
 
 			if b_cvalue, ok = b.Devices[dkey].Channels[ckey]; !ok {
 				if verbose {
@@ -266,8 +266,8 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 
 	expect := DaemonConfig{
 		Debug: false,
-		Devices: map[string]DeviceConfig{
-			"snmp_127.0.0.1_test": DeviceConfig{
+		Devices: map[string]*DeviceConfig{
+			"snmp_127.0.0.1_test": &DeviceConfig{
 				Name:        "SNMP 127.0.0.1_test",
 				Id:          "snmp_127.0.0.1_test",
 				Address:     "127.0.0.1",
@@ -275,22 +275,22 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 				Community:   "test",
 				SnmpVersion: gosnmp.Version1,
 				SnmpTimeout: 1000,
-				Channels: map[string]ChannelConfig{
-					"Temperature": ChannelConfig{
+				Channels: map[string]*ChannelConfig{
+					"Temperature": &ChannelConfig{
 						Name:         "Temperature",
 						Oid:          ".1.2.3",
 						ControlType:  "value",
 						Conv:         Scale(0.1),
 						PollInterval: 1000,
 					},
-					"channel1": ChannelConfig{
+					"channel1": &ChannelConfig{
 						Name:         "channel1",
 						Oid:          ".1.2.3.4.4",
 						ControlType:  "value",
 						Conv:         AsIs,
 						PollInterval: 1000,
 					},
-					"channel2": ChannelConfig{
+					"channel2": &ChannelConfig{
 						Name:         "channel2",
 						Oid:          ".1.2.3.4.5",
 						ControlType:  "value",
@@ -299,7 +299,7 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 					},
 				},
 			},
-			"snmp_127.0.0.2_test": DeviceConfig{
+			"snmp_127.0.0.2_test": &DeviceConfig{
 				Name:        "SNMP 127.0.0.2_test",
 				Id:          "snmp_127.0.0.2_test",
 				Address:     "127.0.0.2",
@@ -307,15 +307,15 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 				Community:   "test",
 				SnmpVersion: gosnmp.Version2c,
 				SnmpTimeout: 1000,
-				Channels: map[string]ChannelConfig{
-					"channel1": ChannelConfig{
+				Channels: map[string]*ChannelConfig{
+					"channel1": &ChannelConfig{
 						Name:         "channel1",
 						Oid:          ".1.2.3.4.4",
 						ControlType:  "value",
 						Conv:         AsIs,
 						PollInterval: 1000,
 					},
-					"channel2": ChannelConfig{
+					"channel2": &ChannelConfig{
 						Name:         "channel2",
 						Oid:          ".1.2.3.4.5",
 						ControlType:  "value",
@@ -363,8 +363,8 @@ func (s *ConfigParserSuite) TestOidPrefix() {
 
 	expect := DaemonConfig{
 		Debug: false,
-		Devices: map[string]DeviceConfig{
-			"snmp_127.0.0.1": DeviceConfig{
+		Devices: map[string]*DeviceConfig{
+			"snmp_127.0.0.1": &DeviceConfig{
 				Name:        "SNMP 127.0.0.1",
 				Id:          "snmp_127.0.0.1",
 				Address:     "127.0.0.1",
@@ -373,22 +373,22 @@ func (s *ConfigParserSuite) TestOidPrefix() {
 				OidPrefix:   "SNMPv2-MIB",
 				SnmpVersion: gosnmp.Version2c,
 				SnmpTimeout: 1000,
-				Channels: map[string]ChannelConfig{
-					"channel1": ChannelConfig{
+				Channels: map[string]*ChannelConfig{
+					"channel1": &ChannelConfig{
 						Name:         "channel1",
 						Oid:          "SNMPv2-MIB::sysDescr.0",
 						ControlType:  "value",
 						Conv:         AsIs,
 						PollInterval: 1000,
 					},
-					"channel2": ChannelConfig{
+					"channel2": &ChannelConfig{
 						Name:         "channel2",
 						Oid:          ".1.2.3.4.5",
 						ControlType:  "value",
 						Conv:         AsIs,
 						PollInterval: 1000,
 					},
-					"channel3": ChannelConfig{
+					"channel3": &ChannelConfig{
 						Name:         "channel3",
 						Oid:          "DISMAN-EVENT-MIB::sysUpTimeInstance",
 						ControlType:  "value",

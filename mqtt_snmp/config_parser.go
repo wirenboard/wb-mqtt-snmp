@@ -151,7 +151,7 @@ type DeviceConfig struct {
 	SnmpTimeout                              int
 
 	// Channels is map from channel names
-	Channels map[string]ChannelConfig
+	Channels map[string]*ChannelConfig
 }
 
 // Get device ID from community string and address
@@ -169,7 +169,7 @@ type DaemonConfig struct {
 	templates deviceTemplatesStorage
 
 	// Devices storage is map from device IDs
-	Devices map[string]DeviceConfig
+	Devices map[string]*DeviceConfig
 }
 
 // Load templates from directory into DaemonConfig storage
@@ -193,15 +193,13 @@ func NewDaemonConfig(input io.Reader, templatesDir string) (config *DaemonConfig
 
 // Make empty device config, fill it with
 // default configuration values such as SnmpVersion and SnmpTimeout
-func NewEmptyDeviceConfig() DeviceConfig {
-	d := DeviceConfig{DeviceType: "", Community: "", SnmpVersion: DefaultSnmpVersion, SnmpTimeout: DefaultSnmpTimeout, OidPrefix: ""}
-	return d
+func NewEmptyDeviceConfig() *DeviceConfig {
+	return &DeviceConfig{DeviceType: "", Community: "", SnmpVersion: DefaultSnmpVersion, SnmpTimeout: DefaultSnmpTimeout, OidPrefix: ""}
 }
 
 // Make empty channel config
-func NewEmptyChannelConfig() ChannelConfig {
-	c := ChannelConfig{ControlType: DefaultChannelControlType, Conv: AsIs, PollInterval: DefaultChannelPollInterval}
-	return c
+func NewEmptyChannelConfig() *ChannelConfig {
+	return &ChannelConfig{ControlType: DefaultChannelControlType, Conv: AsIs, PollInterval: DefaultChannelPollInterval}
 }
 
 // JSON unmarshaller for DaemonConfig
@@ -216,7 +214,7 @@ func (c *DaemonConfig) UnmarshalJSON(raw []byte) error {
 	}
 
 	c.Debug = root.Debug
-	c.Devices = make(map[string]DeviceConfig)
+	c.Devices = make(map[string]*DeviceConfig)
 
 	// parse devices config
 	return c.parseDevices(root.Devices)
@@ -496,7 +494,7 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 		return err
 	}
 
-	d.Channels = make(map[string]ChannelConfig)
+	d.Channels = make(map[string]*ChannelConfig)
 
 	// parse channels
 	if channelsEntry, ok := devEntry["channels"]; ok {
