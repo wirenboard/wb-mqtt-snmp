@@ -16,10 +16,11 @@ type PollQuery struct {
 	Deadline time.Time
 }
 
-// Creates new PollQuery object, adds it into one of queues and
-// gives you a channel to receive polled values
-
+// Poll result is data sent from PollWorker to PublishWorker
+// Data is processed by Conv function by PollWorker
 type PollResult struct {
+	Channel *ChannelConfig
+	Data    string
 }
 
 type PollError struct {
@@ -148,7 +149,7 @@ func (t *PollTable) Poll(out chan PollQuery, deadline time.Time) int {
 		for t.Queues[poll_interval].IsTopPending(deadline) {
 			head, err := t.Queues[poll_interval].Pop()
 			if err != nil {
-				// TODO: log here
+				// TODO: log error here
 				return count
 			}
 
