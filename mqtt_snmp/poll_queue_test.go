@@ -103,18 +103,35 @@ func (p *PollQueueTest) TestPollTable() {
 		i += 1
 	}
 
-	// shift time for 150 ms, poll again
+	// shift time for 160 ms, poll again
 	for i := 0; i < 5; i++ {
 		ar[i].Deadline = t.Add(100 * time.Millisecond)
 	}
-	t = t.Add(150 * time.Millisecond)
+	t2 := t.Add(160 * time.Millisecond)
 	c = make(chan PollQuery, 15)
-	pt.Poll(c, t)
+	pt.Poll(c, t2)
 	i = 0
 	for query := range c {
 		p.Equal(query, ar[i])
 		i += 1
 		p.NotEqual(i, 6)
+	}
+
+	// shift time for 160 ms again, poll
+	for i := 0; i < 5; i++ {
+		ar[i].Deadline = t2.Add(100 * time.Millisecond)
+	}
+	for i := 5; i < 10; i++ {
+		ar[i].Deadline = t.Add(300 * time.Millisecond)
+	}
+	t3 := t2.Add(160 * time.Millisecond)
+	c = make(chan PollQuery, 15)
+	pt.Poll(c, t3)
+	i = 0
+	for query := range c {
+		p.Equal(query, ar[i])
+		i += 1
+		p.NotEqual(i, 11)
 	}
 }
 
