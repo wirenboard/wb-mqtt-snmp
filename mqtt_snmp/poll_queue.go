@@ -34,6 +34,7 @@ type PollQueue struct {
 	size   int
 	start  int
 	end    int
+	empty  bool
 	buffer []PollQuery
 }
 
@@ -43,6 +44,7 @@ func NewEmptyPollQueue(size int) *PollQueue {
 		size:   size,
 		start:  0,
 		end:    0,
+		empty:  true,
 		buffer: make([]PollQuery, size),
 	}
 }
@@ -62,9 +64,11 @@ func NewPollQueue(queries []PollQuery) *PollQueue {
 func (p *PollQueue) Push(q PollQuery) error {
 
 	// drop error on overflow
-	if p.start == p.end {
+	if p.start == p.end && !p.empty {
 		return fmt.Errorf("poll queue overflow")
 	}
+
+	p.empty = false
 
 	p.buffer[p.end] = q
 
@@ -81,7 +85,7 @@ func (p *PollQueue) Push(q PollQuery) error {
 func (p *PollQueue) Pop() (q PollQuery, err error) {
 	err = nil
 
-	if p.start == p.end {
+	if p.start == p.end && p.empty {
 		err = fmt.Errorf("poll queue is empty")
 		return
 	}
@@ -92,6 +96,10 @@ func (p *PollQueue) Pop() (q PollQuery, err error) {
 		p.start = 0
 	} else {
 		p.start += 1
+	}
+
+	if p.start == p.end {
+		p.empty = true
 	}
 
 	return
