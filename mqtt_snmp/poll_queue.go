@@ -6,11 +6,6 @@ import (
 	"time"
 )
 
-const (
-	// Default size of Intervals array in PollTable
-	DEFAULT_INTERVALS_NUMBER = 16
-)
-
 // Poll query unit
 // Contains pointer to SNMP connection, OID to poll, channel
 // to send result to and deadline time
