@@ -24,14 +24,14 @@ type SnmpDevice struct {
 	Cache map[*ChannelConfig]string
 
 	// SNMP connection
-	snmp *gosnmp.GoSNMP
+	snmp *SnmpInterface
 }
 
 // Create new SNMP device instance from config tree
-func newSnmpDevice(config *DeviceConfig) (device *SnmpDevice, err error) {
+func newSnmpDevice(snmpFactory SnmpFactory, config *DeviceConfig) (device *SnmpDevice, err error) {
 	err = nil
 
-	snmp, err := gosnmp.NewGoSNMP(config.Address, config.Community, config.SnmpVersion, int64(config.SnmpTimeout))
+	snmp, err := snmpFactory(config.Address, config.Community, config.SnmpVersion, int64(config.SnmpTimeout))
 	if err != nil {
 		return
 	}
@@ -67,6 +67,30 @@ type SnmpModel struct {
 	resultChannel chan PollResult
 	errorChannel  chan PollError
 	quitChannels  []chan struct{}
+}
+
+// SNMP model constructor
+func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig) (model *SnmpModel, err error) {
+	model = &SnmpModel{
+		config: config,
+	}
+
+	// init all devices from configuration
+	model.devices = make([]*SnmpDevice, len(model.config.Devices))
+	model.deviceChannelMap = make(map[*ChannelConfig]*SnmpDevice)
+	i := 0
+	for dev := range model.config.Devices {
+		if model.devices[i], err = newSnmpDevice(snmpFactory, model.config.Devices[dev]); err != nil {
+			wbgo.Error.Printf("can't create SNMP device: %s", err)
+		}
+
+		for ch := range model.config.Devices[dev].Channels {
+			model.deviceChannelMap[model.config.Devices[dev].Channels[ch]] = model.devices[i]
+		}
+
+		i += 1
+	}
+
 }
 
 // Reader worker
@@ -122,30 +146,14 @@ func (m *SnmpModel) PublisherWorker(data <-chan PollResult, err <-chan PollError
 func (m *SnmpModel) Start() {
 	var err error
 
-	// init all devices from configuration
-	m.devices = make([]*SnmpDevice, len(m.config.Devices))
-	m.deviceChannelMap = make(map[*ChannelConfig]*SnmpDevice)
-	i := 0
-	for dev := range m.config.Devices {
-		if m.devices[i], err = newSnmpDevice(m.config.Devices[dev]); err != nil {
-			wbgo.Error.Printf("can't create SNMP device: %s", err)
-		}
-
-		for ch := range m.config.Devices[dev].Channels {
-			m.deviceChannelMap[m.config.Devices[dev].Channels[ch]] = m.devices[i]
-		}
-
-		i += 1
-	}
-
 	// create all channels
-	m.queryChannel = make(chan PollQuery, CHAN_BUFFER_SIZE)
-	m.resultChannel = make(chan PollResult, CHAN_BUFFER_SIZE)
-	m.errorChannel = make(chan PollError, CHAN_BUFFER_SIZE)
-	m.quitChannels = make([]chan struct{}, NUM_WORKERS+1) // +1 for publisher
+	model.queryChannel = make(chan PollQuery, CHAN_BUFFER_SIZE)
+	model.resultChannel = make(chan PollResult, CHAN_BUFFER_SIZE)
+	model.errorChannel = make(chan PollError, CHAN_BUFFER_SIZE)
+	model.quitChannels = make([]chan struct{}, NUM_WORKERS+1) // +1 for publisher
 
-	for i := range m.quitChannels {
-		m.quitChannels[i] = make(chan struct{})
+	for i := range model.quitChannels {
+		model.quitChannels[i] = make(chan struct{})
 	}
 
 	// start workers and publisher
