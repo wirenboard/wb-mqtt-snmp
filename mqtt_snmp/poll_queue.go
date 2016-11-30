@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+const (
+	// Default size of Intervals array in PollTable
+	DEFAULT_INTERVALS_NUMBER = 16
+)
+
 // Poll query unit
 // Contains pointer to SNMP connection, OID to poll, channel
 // to send result to and deadline time
@@ -72,10 +77,9 @@ func (p *PollQueue) Push(q PollQuery) error {
 
 	p.buffer[p.end] = q
 
+	p.end += 1
 	if p.end == p.size {
 		p.end = 0
-	} else {
-		p.end += 1
 	}
 
 	return nil
@@ -92,10 +96,9 @@ func (p *PollQueue) Pop() (q PollQuery, err error) {
 
 	q = p.buffer[p.start]
 
+	p.start += 1
 	if p.start == p.size {
 		p.start = 0
-	} else {
-		p.start += 1
 	}
 
 	if p.start == p.end {
@@ -107,12 +110,12 @@ func (p *PollQueue) Pop() (q PollQuery, err error) {
 
 // Check if queue on the top is pending
 func (p *PollQueue) IsTopPending(currentTime time.Time) bool {
-	return p.start != p.end && p.buffer[p.start].Deadline.Before(currentTime)
+	return !p.empty && p.buffer[p.start].Deadline.Before(currentTime)
 }
 
 // Is queue empty
 func (p *PollQueue) IsEmpty() bool {
-	return p.start == p.end
+	return p.empty
 }
 
 // Poll table is a set of poll queues with different
@@ -127,6 +130,13 @@ type PollTable struct {
 	// Sorted in ascending order (to process
 	// more frequent polls first)
 	Intervals []int
+}
+
+func NewPollTable() *PollTable {
+	return &PollTable{
+		Queues:    make(map[int]*PollQueue),
+		Intervals: make([]int, 0),
+	}
 }
 
 // Add queue to poll table
@@ -163,9 +173,12 @@ func (t *PollTable) Poll(out chan PollQuery, deadline time.Time) int {
 
 			out <- head
 			head.Deadline = deadline.Add(time.Duration(poll_interval) * time.Millisecond)
+			t.Queues[poll_interval].Push(head)
 			count += 1
 		}
 	}
+
+	close(out)
 
 	return count
 }
