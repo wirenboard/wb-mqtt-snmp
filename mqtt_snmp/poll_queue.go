@@ -118,6 +118,18 @@ func (p *PollQueue) IsEmpty() bool {
 	return p.empty
 }
 
+// Get head element without removing it
+func (p *PollQueue) GetHead() (q PollQuery, err error) {
+	err = nil
+	if p.IsEmpty() {
+		err = fmt.Errorf("fail to get head: queue is empty")
+		return
+	}
+
+	q = p.buffer[p.start]
+	return
+}
+
 // Poll table is a set of poll queues with different
 // poll_interval in each queue. This allows us to avoid
 // sorting and might work well with lots of channels with
@@ -181,4 +193,28 @@ func (t *PollTable) Poll(out chan PollQuery, deadline time.Time) int {
 	close(out)
 
 	return count
+}
+
+// Get next poll time point
+func (t *PollTable) NextPollTime() (minTime time.Time, err error) {
+	// Go through all queues heads and get minimal time
+	var head, h PollQuery
+	head, err = t.Queues[t.Intervals[0]].GetHead()
+	if err != nil {
+		return
+	}
+
+	minTime = head.Deadline
+	for _, interval := range t.Intervals {
+		h, err = t.Queues[interval].GetHead()
+		if err != nil {
+			return
+		}
+		d := h.Deadline
+		if d.Before(minTime) {
+			minTime = d
+		}
+	}
+
+	return
 }

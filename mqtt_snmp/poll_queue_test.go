@@ -93,15 +93,26 @@ func (p *PollQueueTest) TestPollTable() {
 	pt.AddQueue(q2, 300)
 	pt.AddQueue(q3, 500)
 
+	// check next poll time
+	next_poll, err := pt.NextPollTime()
+	p.NoError(err, "failed to get next poll time")
+	p.Equal(next_poll, ar[0].Deadline)
+
 	// test first poll
 	c := make(chan PollQuery, 15)
-	pt.Poll(c, t)
 
+	pt.Poll(c, t)
 	i := 0
 	for query := range c {
 		p.Equal(query, ar[i])
 		i += 1
+		p.NotEqual(i, 16)
 	}
+
+	// check next poll time again
+	next_poll, err = pt.NextPollTime()
+	p.NoError(err, "failed to get next poll time")
+	p.Equal(next_poll, t.Add(100*time.Millisecond))
 
 	// shift time for 160 ms, poll again
 	for i := 0; i < 5; i++ {
