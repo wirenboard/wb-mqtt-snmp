@@ -1,7 +1,9 @@
 package mqtt_snmp
 
 import (
+	// "fmt"
 	"github.com/contactless/wbgo"
+	"time"
 )
 
 const (
@@ -59,24 +61,31 @@ type SnmpModel struct {
 	devices []*SnmpDevice
 
 	// devices associated with their channels
-	deviceChannelMap map[*ChannelConfig]*SnmpDevice
+	DeviceChannelMap map[*ChannelConfig]*SnmpDevice
+
+	// Poll schedule table
+	pollTable *PollTable
 
 	// Channels to exchange data between workers and replier
-	queryChannel  chan PollQuery
-	resultChannel chan PollResult
-	errorChannel  chan PollError
-	quitChannels  []chan struct{}
+	queryChannel    chan PollQuery
+	resultChannel   chan PollResult
+	errorChannel    chan PollError
+	quitChannels    []chan struct{}
+	pollDoneChannel chan struct{}
+	pubDoneChannel  chan struct{}
 }
 
 // SNMP model constructor
 func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig) (model *SnmpModel, err error) {
+	err = nil
+
 	model = &SnmpModel{
 		config: config,
 	}
 
 	// init all devices from configuration
 	model.devices = make([]*SnmpDevice, len(model.config.Devices))
-	model.deviceChannelMap = make(map[*ChannelConfig]*SnmpDevice)
+	model.DeviceChannelMap = make(map[*ChannelConfig]*SnmpDevice)
 	i := 0
 	for dev := range model.config.Devices {
 		if model.devices[i], err = newSnmpDevice(snmpFactory, model.config.Devices[dev]); err != nil {
@@ -84,41 +93,81 @@ func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig) (model *SnmpMod
 		}
 
 		for ch := range model.config.Devices[dev].Channels {
-			model.deviceChannelMap[model.config.Devices[dev].Channels[ch]] = model.devices[i]
+			model.DeviceChannelMap[model.config.Devices[dev].Channels[ch]] = model.devices[i]
 		}
 
 		i += 1
 	}
 
+	if err != nil {
+		return
+	}
+
+	// fill poll table
+	model.pollTable = NewPollTable()
+
+	// form queries from config
+	model.formQueries()
+
 	return
+}
+
+// Form queries from config and fill poll table
+func (m *SnmpModel) formQueries() {
+	// create map from intervals to queries
+	queries := make(map[int][]PollQuery)
+	t := time.Now()
+
+	// go through config file and fill queries map
+	for _, dev := range m.config.Devices {
+		for _, ch := range dev.Channels {
+			if _, ok := queries[ch.PollInterval]; !ok {
+				queries[ch.PollInterval] = make([]PollQuery, 0, 5)
+			}
+
+			// form query
+			q := PollQuery{
+				Channel:  ch,
+				Deadline: t,
+			}
+
+			queries[ch.PollInterval] = append(queries[ch.PollInterval], q)
+		}
+	}
+
+	// push that queues into poll table
+	for interval, lst := range queries {
+		m.pollTable.AddQueue(NewPollQueue(lst), interval)
+	}
 }
 
 // Reader worker
 // Receives poll query, perform SNMP transaction and
 // send result (or error) to publisher worker
-func (m *SnmpModel) PollWorker(id int, req <-chan PollQuery, res chan PollResult, err chan PollError, quit chan struct{}) {
+func (m *SnmpModel) PollWorker(id int, req <-chan PollQuery, res chan PollResult, err chan PollError, quit <-chan struct{}, done chan struct{}) {
+LPollWorker:
 	for {
 		select {
 		case r := <-req:
 			_ = r
 			// process query
 		case <-quit:
-			break
+			done <- struct{}{}
+			break LPollWorker
 		}
 	}
-
-	close(quit)
 }
 
 // Publisher worker
 // Receives new values from Reader workers
-func (m *SnmpModel) PublisherWorker(data <-chan PollResult, err <-chan PollError, quit chan struct{}) {
+func (m *SnmpModel) PublisherWorker(data <-chan PollResult, err <-chan PollError, quit chan struct{}, done chan struct{}) {
+LPublisherWorker:
 	for {
 		select {
 		case d := <-data:
 			// process received data
 			// get device of given channel
-			dev := m.deviceChannelMap[d.Channel]
+			dev := m.DeviceChannelMap[d.Channel]
 
 			// try to get value from cache
 			val, ok := dev.Cache[d.Channel]
@@ -128,18 +177,19 @@ func (m *SnmpModel) PublisherWorker(data <-chan PollResult, err <-chan PollError
 				// TODO: read-only, max value and retain flags
 				dev.Observer.OnNewControl(dev, d.Channel.Name, d.Channel.ControlType, d.Data, true, -1, true)
 			} else if val != d.Data {
+				dev.Cache[d.Channel] = d.Data
 				// send new value only if it has been changed
 				dev.Observer.OnValue(dev, d.Channel.Name, d.Data)
 			}
+			done <- struct{}{}
 		case e := <-err:
 			_ = e
 			// TODO: process error
 		case <-quit:
-			break
+			done <- struct{}{}
+			break LPublisherWorker
 		}
 	}
-
-	close(quit)
 }
 
 // Start model
@@ -151,6 +201,8 @@ func (m *SnmpModel) Start() {
 	m.resultChannel = make(chan PollResult, CHAN_BUFFER_SIZE)
 	m.errorChannel = make(chan PollError, CHAN_BUFFER_SIZE)
 	m.quitChannels = make([]chan struct{}, NUM_WORKERS+1) // +1 for publisher
+	m.pollDoneChannel = make(chan struct{}, CHAN_BUFFER_SIZE)
+	m.pubDoneChannel = make(chan struct{}, CHAN_BUFFER_SIZE)
 
 	for i := range m.quitChannels {
 		m.quitChannels[i] = make(chan struct{})
@@ -158,9 +210,9 @@ func (m *SnmpModel) Start() {
 
 	// start workers and publisher
 	for i := 0; i < NUM_WORKERS; i++ {
-		go m.PollWorker(i, m.queryChannel, m.resultChannel, m.errorChannel, m.quitChannels[i])
+		go m.PollWorker(i, m.queryChannel, m.resultChannel, m.errorChannel, m.quitChannels[i], m.pollDoneChannel)
 	}
-	go m.PublisherWorker(m.resultChannel, m.errorChannel, m.quitChannels[NUM_WORKERS])
+	go m.PublisherWorker(m.resultChannel, m.errorChannel, m.quitChannels[NUM_WORKERS], m.pubDoneChannel)
 }
 
 // Poll values - means run workers and poll queue
@@ -182,8 +234,11 @@ func (m *SnmpModel) Stop() {
 		m.quitChannels[i] <- struct{}{}
 	}
 
-	// wait for quit channels to close
-	for i := range m.quitChannels {
-		<-m.quitChannels[i]
+	// wait for workers to shut down
+	for _ = range m.quitChannels {
+		select {
+		case <-m.pollDoneChannel:
+		case <-m.pubDoneChannel:
+		}
 	}
 }

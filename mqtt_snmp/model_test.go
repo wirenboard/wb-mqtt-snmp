@@ -5,26 +5,34 @@ import (
 	"github.com/alouca/gosnmp"
 	"github.com/contactless/wbgo"
 	"github.com/contactless/wbgo/testutils"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 // Test config
 
 // Mock device observer
 type MockDeviceObserver struct {
-	log string
+	Log   []string
+	mutex sync.Mutex
 }
 
 func (o *MockDeviceObserver) OnValue(dev wbgo.DeviceModel, name, value string) {
-	o.log += fmt.Sprintf("OnValue: device %s, name %s, value %s\n", dev.Name(), name, value)
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	o.Log = append(o.Log, fmt.Sprintf("OnValue: device %s, name %s, value %s\n", dev.Name(), name, value))
 }
 
 func (o *MockDeviceObserver) OnNewControl(dev wbgo.LocalDeviceModel, name, controlType, value string, readonly bool, max float64, retain bool) string {
-	o.log += fmt.Sprintf("OnNewControl: device %s, name %s, type %s, value %s", dev.Name(), name, controlType, value)
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	o.Log = append(o.Log, fmt.Sprintf("OnNewControl: device %s, name %s, type %s, value %s\n", dev.Name(), name, controlType, value))
 	return value
 }
 
-func (o *MockDeviceObserver) GetLog() string { return o.log }
+func (o *MockDeviceObserver) GetLog() string { return strings.Join(o.Log, "") }
 
 // Fake SNMP connection
 type FakeSNMP struct {
@@ -111,10 +119,10 @@ func (m *ModelWorkersTest) SetupTest() {
 	m.Suite.SetupTest()
 
 	// create channels
-	m.queryChannel = make(chan PollQuery)
-	m.resultChannel = make(chan PollResult)
-	m.errorChannel = make(chan PollError)
-	m.quitChannel = make(chan struct{})
+	m.queryChannel = make(chan PollQuery, 128)
+	m.resultChannel = make(chan PollResult, 128)
+	m.errorChannel = make(chan PollError, 128)
+	m.quitChannel = make(chan struct{}, 128)
 
 	// create config
 	m.config = &DaemonConfig{
@@ -152,10 +160,52 @@ func (m *ModelWorkersTest) TearDownTest() {
 	m.Suite.TearDownTest()
 }
 
-// Test PublisherWorker
+// Test PublisherWorker itself (outside model)
 func (m *ModelWorkersTest) TestPublisherWorker() {
-	// launch PublisherWorker
+	// create observer
+	obs := &MockDeviceObserver{Log: make([]string, 0, 16)}
+	ch := m.config.Devices["snmp_device1"].Channels["channel1"]
 
+	// obs.OnValue(m.model.DeviceChannelMap[ch], "hello", "world")
+
+	// observe test device
+	m.model.DeviceChannelMap[ch].Observe(obs)
+
+	done := make(chan struct{}, 128)
+
+	// launch PublisherWorker
+	go m.model.PublisherWorker(m.resultChannel, m.errorChannel, m.quitChannel, done)
+
+	// send some results
+	m.resultChannel <- PollResult{Channel: ch, Data: "foo"}
+	m.resultChannel <- PollResult{Channel: ch, Data: "bar"}
+	m.resultChannel <- PollResult{Channel: ch, Data: "baz"}
+	m.resultChannel <- PollResult{Channel: ch, Data: "baz"}
+
+	// wait for them to be processed
+	for i := 0; i < 4; i++ {
+		<-done
+	}
+
+	// quit worker
+	m.quitChannel <- struct{}{}
+
+	// wait for quit or timeout
+	timeout := make(chan struct{})
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		timeout <- struct{}{}
+	}()
+
+	select {
+	case <-done:
+		break
+	case <-timeout:
+		m.Fail("publisher worker timeout")
+	}
+
+	// compare mock logs
+	m.Equal(obs.GetLog(), "OnNewControl: device snmp_device1, name channel1, type value, value foo\nOnValue: device snmp_device1, name channel1, value bar\nOnValue: device snmp_device1, name channel1, value baz\n")
 }
 
 func TestModelWorkers(t *testing.T) {
