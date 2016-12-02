@@ -1,7 +1,6 @@
 package mqtt_snmp
 
 import (
-	"github.com/alouca/gosnmp"
 	"github.com/contactless/wbgo"
 )
 
@@ -24,7 +23,7 @@ type SnmpDevice struct {
 	Cache map[*ChannelConfig]string
 
 	// SNMP connection
-	snmp *SnmpInterface
+	snmp SnmpInterface
 }
 
 // Create new SNMP device instance from config tree
@@ -91,6 +90,7 @@ func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig) (model *SnmpMod
 		i += 1
 	}
 
+	return
 }
 
 // Reader worker
@@ -144,16 +144,16 @@ func (m *SnmpModel) PublisherWorker(data <-chan PollResult, err <-chan PollError
 
 // Start model
 func (m *SnmpModel) Start() {
-	var err error
+	// var err error
 
 	// create all channels
-	model.queryChannel = make(chan PollQuery, CHAN_BUFFER_SIZE)
-	model.resultChannel = make(chan PollResult, CHAN_BUFFER_SIZE)
-	model.errorChannel = make(chan PollError, CHAN_BUFFER_SIZE)
-	model.quitChannels = make([]chan struct{}, NUM_WORKERS+1) // +1 for publisher
+	m.queryChannel = make(chan PollQuery, CHAN_BUFFER_SIZE)
+	m.resultChannel = make(chan PollResult, CHAN_BUFFER_SIZE)
+	m.errorChannel = make(chan PollError, CHAN_BUFFER_SIZE)
+	m.quitChannels = make([]chan struct{}, NUM_WORKERS+1) // +1 for publisher
 
-	for i := range model.quitChannels {
-		model.quitChannels[i] = make(chan struct{})
+	for i := range m.quitChannels {
+		m.quitChannels[i] = make(chan struct{})
 	}
 
 	// start workers and publisher
