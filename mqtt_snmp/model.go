@@ -149,8 +149,25 @@ LPollWorker:
 	for {
 		select {
 		case r := <-req:
-			_ = r
 			// process query
+			dev := m.DeviceChannelMap[r.Channel]
+			packet, e := dev.snmp.Get(r.Channel.Oid)
+			if e != nil {
+				// TODO: make it Error and suppress on testing
+				wbgo.Debug.Printf("failed to poll %s:%s: %s", dev.DevName, r.Channel.Name, e)
+				err <- PollError{Channel: r.Channel}
+			} else {
+				for i := range packet.Variables {
+					data, valid := packet.Variables[i].Value.(string)
+					if !valid {
+						wbgo.Error.Printf("failed to poll %s:%s: instance is not an octet string", dev.DevName, r.Channel.Name)
+						err <- PollError{Channel: r.Channel}
+					} else {
+						res <- PollResult{Channel: r.Channel, Data: data}
+					}
+				}
+			}
+			done <- struct{}{}
 		case <-quit:
 			done <- struct{}{}
 			break LPollWorker
