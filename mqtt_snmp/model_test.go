@@ -300,6 +300,17 @@ func (m *ModelWorkersTest) TestPollWorker() {
 		m.Fail("no error from poller")
 	}
 	m.Equal(er, PollError{Channel: ch2})
+
+	// close worker
+	m.quitChannel <- struct{}{}
+
+	timeout4 := make(chan struct{})
+	go Timeout(500, timeout4)
+	select {
+	case <-done:
+	case <-timeout4:
+		m.Fail("poll worker timeout on quit")
+	}
 }
 
 func TestModelWorkers(t *testing.T) {
