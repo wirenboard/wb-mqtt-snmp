@@ -1,7 +1,7 @@
 package mqtt_snmp
 
 import (
-	// "fmt"
+	"fmt"
 	"github.com/contactless/wbgo"
 	"time"
 )
@@ -67,16 +67,20 @@ type SnmpModel struct {
 	pollTable *PollTable
 
 	// Channels to exchange data between workers and replier
-	queryChannel    chan PollQuery
-	resultChannel   chan PollResult
-	errorChannel    chan PollError
-	quitChannels    []chan struct{}
-	pollDoneChannel chan struct{}
-	pubDoneChannel  chan struct{}
+	queryChannel         chan PollQuery
+	resultChannel        chan PollResult
+	errorChannel         chan PollError
+	quitChannels         []chan struct{}
+	pollDoneChannel      chan struct{}
+	pubDoneChannel       chan struct{}
+	pollTimerDoneChannel chan struct{}
+
+	// Poll timer to sync poll procedures
+	pollTimer wbgo.RTimer
 }
 
 // SNMP model constructor
-func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig) (model *SnmpModel, err error) {
+func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig, start time.Time) (model *SnmpModel, err error) {
 	err = nil
 
 	model = &SnmpModel{
@@ -106,17 +110,16 @@ func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig) (model *SnmpMod
 	// fill poll table
 	model.pollTable = NewPollTable()
 
-	// form queries from config
-	model.formQueries()
+	// form queries from config and given start time
+	model.formQueries(start)
 
 	return
 }
 
 // Form queries from config and fill poll table
-func (m *SnmpModel) formQueries() {
+func (m *SnmpModel) formQueries(deadline time.Time) {
 	// create map from intervals to queries
 	queries := make(map[int][]PollQuery)
-	t := time.Now()
 
 	// go through config file and fill queries map
 	for _, dev := range m.config.Devices {
@@ -128,7 +131,7 @@ func (m *SnmpModel) formQueries() {
 			// form query
 			q := PollQuery{
 				Channel:  ch,
-				Deadline: t,
+				Deadline: deadline,
 			}
 
 			queries[ch.PollInterval] = append(queries[ch.PollInterval], q)
@@ -149,6 +152,7 @@ LPollWorker:
 	for {
 		select {
 		case r := <-req:
+			fmt.Printf("[poll %d] Receive request %v\n", id, r)
 			// process query
 			dev := m.DeviceChannelMap[r.Channel]
 			packet, e := dev.snmp.Get(r.Channel.Oid)
@@ -163,6 +167,7 @@ LPollWorker:
 						wbgo.Error.Printf("failed to poll %s:%s: instance is not an octet string", dev.DevName, r.Channel.Name)
 						err <- PollError{Channel: r.Channel}
 					} else {
+						fmt.Printf("[poll %d] Send result for request %v: %v\n", id, r, data)
 						res <- PollResult{Channel: r.Channel, Data: data}
 					}
 				}
@@ -182,9 +187,15 @@ LPublisherWorker:
 	for {
 		select {
 		case d := <-data:
+			fmt.Printf("[publisher] Receive data %+v\n", d)
+
 			// process received data
 			// get device of given channel
 			dev := m.DeviceChannelMap[d.Channel]
+
+			if dev == nil {
+				panic(fmt.Sprintf("device is not found for channel: %+v", d.Channel))
+			}
 
 			// try to get value from cache
 			val, ok := dev.Cache[d.Channel]
@@ -209,17 +220,55 @@ LPublisherWorker:
 	}
 }
 
+// Timer triggers pollTable to send queries
+func (m *SnmpModel) PollTimerWorker(quit <-chan struct{}, done chan struct{}) {
+	var t time.Time
+
+	for {
+		// wait for timer event
+		select {
+		case <-quit:
+			done <- struct{}{}
+			return
+		case t = <-m.pollTimer.GetChannel():
+		}
+		fmt.Printf("[POLLTIMEREVENT] Run at %v\n", t)
+
+		// start poll and wait until it's done
+		numQueries := m.pollTable.Poll(m.queryChannel, t)
+		for i := 0; i < 2*numQueries; i++ {
+			select {
+			case <-m.pollDoneChannel:
+			case <-m.pubDoneChannel:
+			}
+		}
+
+		// setup timer to next poll time
+		nextPoll, err := m.pollTable.NextPollTime()
+		if err != nil {
+			// TODO: log something
+			panic("Error getting next poll time from table")
+		}
+		m.pollTimer.Reset(nextPoll.Sub(t))
+	}
+}
+
+// Setup poll timer and timer channel
+// Generally this is for testing
+func (m *SnmpModel) SetPollTimer(t wbgo.RTimer) {
+	m.pollTimer = t
+}
+
 // Start model
 func (m *SnmpModel) Start() {
-	// var err error
-
 	// create all channels
 	m.queryChannel = make(chan PollQuery, CHAN_BUFFER_SIZE)
 	m.resultChannel = make(chan PollResult, CHAN_BUFFER_SIZE)
 	m.errorChannel = make(chan PollError, CHAN_BUFFER_SIZE)
-	m.quitChannels = make([]chan struct{}, NUM_WORKERS+1) // +1 for publisher
+	m.quitChannels = make([]chan struct{}, NUM_WORKERS+2) // +2 for publisher and poll timer
 	m.pollDoneChannel = make(chan struct{}, CHAN_BUFFER_SIZE)
 	m.pubDoneChannel = make(chan struct{}, CHAN_BUFFER_SIZE)
+	m.pollTimerDoneChannel = make(chan struct{})
 
 	for i := range m.quitChannels {
 		m.quitChannels[i] = make(chan struct{})
@@ -230,21 +279,36 @@ func (m *SnmpModel) Start() {
 		go m.PollWorker(i, m.queryChannel, m.resultChannel, m.errorChannel, m.quitChannels[i], m.pollDoneChannel)
 	}
 	go m.PublisherWorker(m.resultChannel, m.errorChannel, m.quitChannels[NUM_WORKERS], m.pubDoneChannel)
+
+	go m.PollTimerWorker(m.quitChannels[NUM_WORKERS+1], m.pollTimerDoneChannel)
+
+	// start poll timer
+	// configure local timer if it was not configured yet
+	if m.pollTimer == nil {
+		nextPoll, err := m.pollTable.NextPollTime()
+		if err != nil {
+			// TODO: log something
+			m.Stop()
+		}
+		m.SetPollTimer(wbgo.NewRealRTimer(nextPoll.Sub(time.Now())))
+	}
 }
 
-// Poll values - means run workers and poll queue
-func (m *SnmpModel) Poll() {
-	// TODO: dummy!
-	// Test publisher node
-	m.resultChannel <- PollResult{}
-}
+// Built-in poll function - leave this empty, we have our own autopoll already
+func (m *SnmpModel) Poll() {}
 
 // Stop model - send signal to terminate all workers
 func (m *SnmpModel) Stop() {
+
+	// stop poller
+	if m.pollTimer != nil {
+		m.pollTimer.Stop()
+	}
+
 	// close all data channels
-	close(m.queryChannel)
-	close(m.resultChannel)
-	close(m.errorChannel)
+	// close(m.queryChannel)
+	// close(m.resultChannel)
+	// close(m.errorChannel)
 
 	// send signals to quit to all workers
 	for i := range m.quitChannels {
@@ -252,10 +316,19 @@ func (m *SnmpModel) Stop() {
 	}
 
 	// wait for workers to shut down
+	pollDone := 0
+	pubDone := 0
+	pollTimerDone := 0
 	for _ = range m.quitChannels {
 		select {
 		case <-m.pollDoneChannel:
+			pollDone++
 		case <-m.pubDoneChannel:
+			pubDone++
+		case <-m.pollTimerDoneChannel:
+			pollTimerDone++
 		}
 	}
+
+	fmt.Printf("Done: poll %d, pub %d, timer %d\n", pollDone, pubDone, pollTimerDone)
 }

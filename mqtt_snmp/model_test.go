@@ -17,26 +17,86 @@ func Timeout(d int, c chan struct{}) {
 	c <- struct{}{}
 }
 
+// Event description for mock device observer
+type MockDeviceEventType int
+
+const (
+	OnValueEvent      MockDeviceEventType = 1
+	OnNewControlEvent MockDeviceEventType = 2
+)
+
+type MockDeviceEvent struct {
+	Type    MockDeviceEventType
+	Message string
+}
+
 // Mock device observer
 type MockDeviceObserver struct {
-	Log   []string
+	Log   chan MockDeviceEvent
 	mutex sync.Mutex
 }
 
 func (o *MockDeviceObserver) OnValue(dev wbgo.DeviceModel, name, value string) {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
-	o.Log = append(o.Log, fmt.Sprintf("OnValue: device %s, name %s, value %s\n", dev.Name(), name, value))
+	o.Log <- MockDeviceEvent{OnValueEvent, fmt.Sprintf("device %s, name %s, value %s", dev.Name(), name, value)}
 }
 
 func (o *MockDeviceObserver) OnNewControl(dev wbgo.LocalDeviceModel, name, controlType, value string, readonly bool, max float64, retain bool) string {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
-	o.Log = append(o.Log, fmt.Sprintf("OnNewControl: device %s, name %s, type %s, value %s\n", dev.Name(), name, controlType, value))
+	o.Log <- MockDeviceEvent{OnNewControlEvent, fmt.Sprintf("device %s, name %s, type %s, value %s", dev.Name(), name, controlType, value)}
 	return value
 }
 
-func (o *MockDeviceObserver) GetLog() string { return strings.Join(o.Log, "") }
+// CheckEvents checks if all events from list were pushed into log (maybe in another order)
+func (o *MockDeviceObserver) CheckEvents(list []*MockDeviceEvent, timeout int) error {
+	timeout_ch := make(chan struct{})
+	go Timeout(timeout, timeout_ch)
+
+	for _ = range list {
+		select {
+		case <-timeout_ch:
+			return fmt.Errorf("event timeout")
+		case event := <-o.Log:
+			gotEvent := false
+			// try to find received event in list
+			for j := range list {
+				if list[j] != nil && *(list[j]) == event {
+					list[j] = nil
+					gotEvent = true
+					fmt.Printf("Got event %v\n", event)
+					break
+				}
+			}
+
+			if !gotEvent {
+				return fmt.Errorf("unknown event received: %v", event)
+			}
+		}
+	}
+
+	return nil
+}
+
+// WaitForNoMessages checks if no messages are going to be received during given interval
+func (o *MockDeviceObserver) WaitForNoMessages(timeout int) error {
+	timeout_ch := make(chan struct{})
+	go Timeout(timeout, timeout_ch)
+
+	select {
+	case <-timeout_ch:
+		return nil
+	case event := <-o.Log:
+		return fmt.Errorf("got unexpected message: %v", event)
+	}
+}
+
+func NewMockDeviceObserver() *MockDeviceObserver {
+	return &MockDeviceObserver{
+		Log: make(chan MockDeviceEvent, 16),
+	}
+}
 
 var (
 	// Map of fake SNMP objects to be read from FakeSNMPs
@@ -96,6 +156,42 @@ func NewFakeSNMP(address, community string, version gosnmp.SnmpVersion, timeout 
 	return
 }
 
+// Very simple fake timer for model testing
+type FakeRTimer struct {
+	c           chan time.Time
+	currentTime time.Time
+}
+
+func (t *FakeRTimer) GetChannel() <-chan time.Time {
+	return t.c
+}
+
+func (t *FakeRTimer) Stop() {}
+
+// Reset adds duration value to local time value and sends a new time message immediately
+func (t *FakeRTimer) Reset(d time.Duration) {
+	t.currentTime = t.currentTime.Add(d)
+	fmt.Printf("[FAKETIMER] Updated time: %v\n", t.currentTime)
+}
+
+// Tick sends a new message to the output channel
+func (t *FakeRTimer) Tick() {
+	fmt.Printf("[FAKETIMER] Tick %v\n", t.currentTime)
+	t.c <- t.currentTime
+}
+
+// NewFakeRTimer creates a new fake RTimer starting from localTimer
+// numShots is a number of messages to generate on Reset() calls
+// d is a first shot duration
+func NewFakeRTimer(localTime time.Time, d time.Duration) *FakeRTimer {
+	t := &FakeRTimer{
+		c:           make(chan time.Time, 1),
+		currentTime: localTime.Add(d),
+	}
+
+	return t
+}
+
 // Test model workers - goroutines to process requests
 type ModelWorkersTest struct {
 	testutils.Suite
@@ -111,10 +207,14 @@ type ModelWorkersTest struct {
 	resultChannel chan PollResult
 	errorChannel  chan PollError
 	quitChannel   chan struct{}
+
+	// Default start time
+	StartTime time.Time
 }
 
 func (m *ModelWorkersTest) SetupTestFixture(t *testing.T) {
-	fakeSNMPMessages = make(map[string]*gosnmp.SnmpPacket)
+	// default start time
+	m.StartTime = time.Date(2016, time.December, 1, 0, 0, 0, 0, time.UTC)
 }
 
 func (m *ModelWorkersTest) TearDownTestFixture(t *testing.T) {
@@ -122,6 +222,8 @@ func (m *ModelWorkersTest) TearDownTestFixture(t *testing.T) {
 }
 
 func (m *ModelWorkersTest) SetupTest() {
+	fakeSNMPMessages = make(map[string]*gosnmp.SnmpPacket)
+
 	m.Suite.SetupTest()
 
 	// create channels
@@ -154,7 +256,7 @@ func (m *ModelWorkersTest) SetupTest() {
 						Oid:          ".1.2.3.5",
 						ControlType:  "value",
 						Conv:         AsIs,
-						PollInterval: 1000,
+						PollInterval: 2000,
 					},
 				},
 			},
@@ -170,10 +272,8 @@ func (m *ModelWorkersTest) SetupTest() {
 		}
 	}
 
-	// create fake SNMP
-
 	// create model
-	m.model, _ = NewSnmpModel(NewFakeSNMP, m.config)
+	m.model, _ = NewSnmpModel(NewFakeSNMP, m.config, m.StartTime)
 }
 
 func (m *ModelWorkersTest) TearDownTest() {
@@ -183,7 +283,7 @@ func (m *ModelWorkersTest) TearDownTest() {
 // Test PublisherWorker itself (outside the model)
 func (m *ModelWorkersTest) TestPublisherWorker() {
 	// create observer
-	obs := &MockDeviceObserver{Log: make([]string, 0, 16)}
+	obs := NewMockDeviceObserver()
 	ch := m.config.Devices["snmp_device1"].Channels["channel1"]
 
 	// observe test device
@@ -220,7 +320,9 @@ func (m *ModelWorkersTest) TestPublisherWorker() {
 	}
 
 	// compare mock logs
-	m.Equal(obs.GetLog(), "OnNewControl: device snmp_device1, name channel1, type value, value foo\nOnValue: device snmp_device1, name channel1, value bar\nOnValue: device snmp_device1, name channel1, value baz\n")
+	m.Equal(<-obs.Log, MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel1, type value, value foo"})
+	m.Equal(<-obs.Log, MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel1, value bar"})
+	m.Equal(<-obs.Log, MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel1, value baz"})
 }
 
 // Test poll worker itself (outside the model)
@@ -311,6 +413,65 @@ func (m *ModelWorkersTest) TestPollWorker() {
 	case <-timeout4:
 		m.Fail("poll worker timeout on quit")
 	}
+}
+
+// Test whole model
+func (m *ModelWorkersTest) TestModel() {
+	// Create a fake timer to make poll shots
+	timer := NewFakeRTimer(m.StartTime, 1*time.Millisecond)
+	m.model.SetPollTimer(timer)
+
+	// Create fake device observer
+	obs := NewMockDeviceObserver()
+	ch1 := m.config.Devices["snmp_device1"].Channels["channel1"]
+	ch2 := m.config.Devices["snmp_device1"].Channels["channel2"]
+
+	m.model.DeviceChannelMap[ch1].Observe(obs)
+	m.model.DeviceChannelMap[ch2].Observe(obs)
+
+	// Set some SNMP values
+	InsertFakeSNMPMessage("127.0.0.1@test@.1.2.3.4", "foo")
+	InsertFakeSNMPMessage("127.0.0.1@test@.1.2.3.5", "bar")
+
+	// Start model
+	m.model.Start()
+	defer m.model.Stop()
+
+	// Send a tick to model
+	timer.Tick()
+
+	// Receive new events
+	events1 := []*MockDeviceEvent{
+		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel1, type value, value foo"},
+		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel2, type value, value bar"},
+	}
+
+	m.NoError(obs.CheckEvents(events1, 1000))
+
+	// Change SNMP value for channel 1 and channel 2
+	InsertFakeSNMPMessage("127.0.0.1@test@.1.2.3.4", "baz")
+	InsertFakeSNMPMessage("127.0.0.1@test@.1.2.3.5", "moo")
+
+	// After first tick we must get first message only
+	timer.Tick()
+
+	events2 := []*MockDeviceEvent{
+		&MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel1, value baz"},
+	}
+
+	m.NoError(obs.CheckEvents(events2, 1000000))
+
+	timer.Tick()
+	events3 := []*MockDeviceEvent{
+		&MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel2, value moo"},
+	}
+
+	m.NoError(obs.CheckEvents(events3, 1000))
+
+	timer.Tick()
+
+	// wait for observer to flush and get no more events
+	m.NoError(obs.WaitForNoMessages(300))
 }
 
 func TestModelWorkers(t *testing.T) {

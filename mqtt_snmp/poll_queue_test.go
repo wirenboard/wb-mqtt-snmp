@@ -54,7 +54,7 @@ func (p *PollQueueTest) TestSubQueue() {
 	// check elements
 	for i := 0; i < 10; i++ {
 		// check pending check
-		p.Equal(q.IsTopPending(t), i < 5)
+		p.Equal(q.IsTopPending(t), i <= 5)
 
 		elem, err := q.Pop()
 		p.NoError(err, "failed to get elem from queue")
@@ -101,11 +101,10 @@ func (p *PollQueueTest) TestPollTable() {
 	// test first poll
 	c := make(chan PollQuery, 15)
 
-	pt.Poll(c, t)
-	i := 0
-	for query := range c {
+	num := pt.Poll(c, t)
+	for i := 0; i < num; i++ {
+		query := <-c
 		p.Equal(query, ar[i])
-		i += 1
 		p.NotEqual(i, 16)
 	}
 
@@ -119,12 +118,11 @@ func (p *PollQueueTest) TestPollTable() {
 		ar[i].Deadline = t.Add(100 * time.Millisecond)
 	}
 	t2 := t.Add(160 * time.Millisecond)
-	c = make(chan PollQuery, 15)
-	pt.Poll(c, t2)
-	i = 0
-	for query := range c {
+
+	num = pt.Poll(c, t2)
+	for i := 0; i < num; i++ {
+		query := <-c
 		p.Equal(query, ar[i])
-		i += 1
 		p.NotEqual(i, 6)
 	}
 
@@ -136,12 +134,11 @@ func (p *PollQueueTest) TestPollTable() {
 		ar[i].Deadline = t.Add(300 * time.Millisecond)
 	}
 	t3 := t2.Add(160 * time.Millisecond)
-	c = make(chan PollQuery, 15)
-	pt.Poll(c, t3)
-	i = 0
-	for query := range c {
+
+	num = pt.Poll(c, t3)
+	for i := 0; i < num; i++ {
+		query := <-c
 		p.Equal(query, ar[i])
-		i += 1
 		p.NotEqual(i, 11)
 	}
 }

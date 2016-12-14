@@ -105,7 +105,7 @@ func (p *PollQueue) Pop() (q PollQuery, err error) {
 
 // Check if queue on the top is pending
 func (p *PollQueue) IsTopPending(currentTime time.Time) bool {
-	return !p.empty && p.buffer[p.start].Deadline.Before(currentTime)
+	return !p.empty && (p.buffer[p.start].Deadline.Before(currentTime) || p.buffer[p.start].Deadline.Equal(currentTime))
 }
 
 // Is queue empty
@@ -178,14 +178,13 @@ func (t *PollTable) Poll(out chan PollQuery, deadline time.Time) int {
 				return count
 			}
 
+			// fmt.Printf("[polltable] Send request from head: %v\n", head)
 			out <- head
 			head.Deadline = deadline.Add(time.Duration(poll_interval) * time.Millisecond)
 			t.Queues[poll_interval].Push(head)
 			count += 1
 		}
 	}
-
-	close(out)
 
 	return count
 }
