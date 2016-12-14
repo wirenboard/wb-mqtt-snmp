@@ -93,7 +93,7 @@ func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig, start time.Time
 	i := 0
 	for dev := range model.config.Devices {
 		if model.devices[i], err = newSnmpDevice(snmpFactory, model.config.Devices[dev]); err != nil {
-			wbgo.Error.Printf("can't create SNMP device: %s", err)
+			wbgo.Error.Fatalf("can't create SNMP device: %s", err)
 		}
 
 		for ch := range model.config.Devices[dev].Channels {
@@ -152,7 +152,7 @@ LPollWorker:
 	for {
 		select {
 		case r := <-req:
-			// fmt.Printf("[poll %d] Receive request %v\n", id, r)
+			wbgo.Debug.Printf("[poller %d] Receive request %v\n", id, r.Channel.Oid)
 			// process query
 			dev := m.DeviceChannelMap[r.Channel]
 			packet, e := dev.snmp.Get(r.Channel.Oid)
@@ -167,7 +167,7 @@ LPollWorker:
 						wbgo.Error.Printf("failed to poll %s:%s: instance is not an octet string", dev.DevName, r.Channel.Name)
 						err <- PollError{Channel: r.Channel}
 					} else {
-						// fmt.Printf("[poll %d] Send result for request %v: %v\n", id, r, data)
+						wbgo.Debug.Printf("[poller %d] Send result for request %v: %v", id, r, data)
 						res <- PollResult{Channel: r.Channel, Data: data}
 					}
 				}
@@ -187,7 +187,7 @@ LPublisherWorker:
 	for {
 		select {
 		case d := <-data:
-			// fmt.Printf("[publisher] Receive data %+v\n", d)
+			wbgo.Debug.Printf("[publisher] Receive data %+v\n", d)
 
 			// process received data
 			// get device of given channel
@@ -232,7 +232,7 @@ func (m *SnmpModel) PollTimerWorker(quit <-chan struct{}, done chan struct{}) {
 			return
 		case t = <-m.pollTimer.GetChannel():
 		}
-		// fmt.Printf("[POLLTIMEREVENT] Run at %v\n", t)
+		wbgo.Debug.Printf("[POLLTIMEREVENT] Run at %v\n", t)
 
 		// start poll and wait until it's done
 		numQueries := m.pollTable.Poll(m.queryChannel, t)
@@ -260,7 +260,7 @@ func (m *SnmpModel) SetPollTimer(t wbgo.RTimer) {
 }
 
 // Start model
-func (m *SnmpModel) Start() {
+func (m *SnmpModel) Start() error {
 	// create all channels
 	m.queryChannel = make(chan PollQuery, CHAN_BUFFER_SIZE)
 	m.resultChannel = make(chan PollResult, CHAN_BUFFER_SIZE)
@@ -292,6 +292,8 @@ func (m *SnmpModel) Start() {
 		}
 		m.SetPollTimer(wbgo.NewRealRTimer(nextPoll.Sub(time.Now())))
 	}
+
+	return nil
 }
 
 // Built-in poll function - leave this empty, we have our own autopoll already
