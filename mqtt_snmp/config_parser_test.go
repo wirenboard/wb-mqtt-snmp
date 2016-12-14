@@ -273,7 +273,7 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 				DeviceType:  "type2",
 				Community:   "test",
 				SnmpVersion: gosnmp.Version1,
-				SnmpTimeout: 1000,
+				SnmpTimeout: DefaultSnmpTimeout,
 				Channels: map[string]*ChannelConfig{
 					"Temperature": &ChannelConfig{
 						Name:         "Temperature",
@@ -305,7 +305,7 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 				DeviceType:  "type2",
 				Community:   "test",
 				SnmpVersion: gosnmp.Version2c,
-				SnmpTimeout: 1000,
+				SnmpTimeout: DefaultSnmpTimeout,
 				Channels: map[string]*ChannelConfig{
 					"channel1": &ChannelConfig{
 						Name:         "channel1",
@@ -371,7 +371,7 @@ func (s *ConfigParserSuite) TestOidPrefix() {
 				Community:   "",
 				OidPrefix:   "SNMPv2-MIB",
 				SnmpVersion: gosnmp.Version2c,
-				SnmpTimeout: 1000,
+				SnmpTimeout: DefaultSnmpTimeout,
 				Channels: map[string]*ChannelConfig{
 					"channel1": &ChannelConfig{
 						Name:         "channel1",
