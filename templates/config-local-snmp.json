@@ -13,6 +13,11 @@
         "name": "System date",
         "oid": "HOST-RESOURCES-MIB::hrSystemDate.0",
         "poll_interval": 500
+    },
+    {
+        "name": "Services",
+        "oid": "sysServices.0",
+        "poll_interval": 2000
     }
     ]
 }
