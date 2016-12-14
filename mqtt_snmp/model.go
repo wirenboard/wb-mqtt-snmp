@@ -29,10 +29,10 @@ type SnmpDevice struct {
 }
 
 // Create new SNMP device instance from config tree
-func newSnmpDevice(snmpFactory SnmpFactory, config *DeviceConfig) (device *SnmpDevice, err error) {
+func newSnmpDevice(snmpFactory SnmpFactory, config *DeviceConfig, debug bool) (device *SnmpDevice, err error) {
 	err = nil
 
-	snmp, err := snmpFactory(config.Address, config.Community, config.SnmpVersion, int64(config.SnmpTimeout))
+	snmp, err := snmpFactory(config.Address, config.Community, config.SnmpVersion, int64(config.SnmpTimeout), debug)
 	if err != nil {
 		return
 	}
@@ -92,7 +92,7 @@ func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig, start time.Time
 	model.DeviceChannelMap = make(map[*ChannelConfig]*SnmpDevice)
 	i := 0
 	for dev := range model.config.Devices {
-		if model.devices[i], err = newSnmpDevice(snmpFactory, model.config.Devices[dev]); err != nil {
+		if model.devices[i], err = newSnmpDevice(snmpFactory, model.config.Devices[dev], config.Debug); err != nil {
 			wbgo.Error.Fatalf("can't create SNMP device: %s", err)
 		}
 
@@ -272,6 +272,11 @@ func (m *SnmpModel) Start() error {
 
 	for i := range m.quitChannels {
 		m.quitChannels[i] = make(chan struct{})
+	}
+
+	// observe local devices
+	for i := range m.devices {
+		m.Observer.OnNewDevice(m.devices[i])
 	}
 
 	// start workers and publisher

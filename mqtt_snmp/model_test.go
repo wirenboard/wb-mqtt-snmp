@@ -23,6 +23,12 @@ type MockDeviceEventType int
 const (
 	OnValueEvent      MockDeviceEventType = 1
 	OnNewControlEvent MockDeviceEventType = 2
+
+	// Event waiting timeout
+	EventTimeout = 1000
+
+	// Wait timeout to check there's no more messages in channel
+	WaitTimeout = 200
 )
 
 type MockDeviceEvent struct {
@@ -143,7 +149,7 @@ func InsertFakeSNMPMessage(key string, value string) {
 	}
 }
 
-func NewFakeSNMP(address, community string, version gosnmp.SnmpVersion, timeout int64) (snmp SnmpInterface, err error) {
+func NewFakeSNMP(address, community string, version gosnmp.SnmpVersion, timeout int64, debug bool) (snmp SnmpInterface, err error) {
 	err = nil
 	s := &FakeSNMP{
 		Address:   address,
@@ -201,6 +207,23 @@ func NewFakeRTimer(localTime time.Time, d time.Duration) *FakeRTimer {
 	return t
 }
 
+// Fake model observer
+type FakeModelObserver struct {
+	// Device observer registered
+	DevObserver *MockDeviceObserver
+}
+
+func (f *FakeModelObserver) CallSync(thunk func())             {}
+func (f *FakeModelObserver) WhenReady(thunk func())            {}
+func (f *FakeModelObserver) RemoveDevice(dev wbgo.DeviceModel) {}
+func (f *FakeModelObserver) OnNewDevice(dev wbgo.DeviceModel) {
+	dev.Observe(f.DevObserver)
+}
+
+func NewFakeModelObserver(devObserver *MockDeviceObserver) *FakeModelObserver {
+	return &FakeModelObserver{devObserver}
+}
+
 // Test model workers - goroutines to process requests
 type ModelWorkersTest struct {
 	testutils.Suite
@@ -219,6 +242,9 @@ type ModelWorkersTest struct {
 
 	// Default start time
 	StartTime time.Time
+
+	// Model observer
+	ModelObserver *FakeModelObserver
 }
 
 func (m *ModelWorkersTest) SetupTestFixture(t *testing.T) {
@@ -235,6 +261,8 @@ func (m *ModelWorkersTest) SetupTest() {
 
 	m.Suite.SetupTest()
 
+	m.ModelObserver = NewFakeModelObserver(NewMockDeviceObserver())
+
 	// create channels
 	m.queryChannel = make(chan PollQuery, 128)
 	m.resultChannel = make(chan PollResult, 128)
@@ -243,7 +271,7 @@ func (m *ModelWorkersTest) SetupTest() {
 
 	// create config
 	m.config = &DaemonConfig{
-		Debug: false,
+		Debug: true,
 		Devices: map[string]*DeviceConfig{
 			"snmp_device1": &DeviceConfig{
 				Name:        "Device 1",
@@ -251,7 +279,7 @@ func (m *ModelWorkersTest) SetupTest() {
 				Community:   "test",
 				Id:          "snmp_device1",
 				SnmpVersion: gosnmp.Version2c,
-				SnmpTimeout: 1000,
+				SnmpTimeout: 1,
 				Channels: map[string]*ChannelConfig{
 					"channel1": &ChannelConfig{
 						Name:         "channel1",
@@ -283,6 +311,8 @@ func (m *ModelWorkersTest) SetupTest() {
 
 	// create model
 	m.model, _ = NewSnmpModel(NewFakeSNMP, m.config, m.StartTime)
+
+	m.model.Observe(m.ModelObserver)
 }
 
 func (m *ModelWorkersTest) TearDownTest() {
@@ -431,12 +461,7 @@ func (m *ModelWorkersTest) TestModel() {
 	m.model.SetPollTimer(timer)
 
 	// Create fake device observer
-	obs := NewMockDeviceObserver()
-	ch1 := m.config.Devices["snmp_device1"].Channels["channel1"]
-	ch2 := m.config.Devices["snmp_device1"].Channels["channel2"]
-
-	m.model.DeviceChannelMap[ch1].Observe(obs)
-	m.model.DeviceChannelMap[ch2].Observe(obs)
+	obs := m.ModelObserver.DevObserver
 
 	// Set some SNMP values
 	InsertFakeSNMPMessage("127.0.0.1@test@.1.2.3.4", "foo")
@@ -455,7 +480,7 @@ func (m *ModelWorkersTest) TestModel() {
 		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel2, type value, value bar"},
 	}
 
-	m.NoError(obs.CheckEvents(events1, 1000))
+	m.NoError(obs.CheckEvents(events1, EventTimeout))
 
 	// Change SNMP value for channel 1 and channel 2
 	InsertFakeSNMPMessage("127.0.0.1@test@.1.2.3.4", "baz")
@@ -468,19 +493,19 @@ func (m *ModelWorkersTest) TestModel() {
 		&MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel1, value baz"},
 	}
 
-	m.NoError(obs.CheckEvents(events2, 1000000))
+	m.NoError(obs.CheckEvents(events2, EventTimeout))
 
 	timer.Tick()
 	events3 := []*MockDeviceEvent{
 		&MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel2, value moo"},
 	}
 
-	m.NoError(obs.CheckEvents(events3, 1000))
+	m.NoError(obs.CheckEvents(events3, EventTimeout))
 
 	timer.Tick()
 
 	// wait for observer to flush and get no more events
-	m.NoError(obs.WaitForNoMessages(300))
+	m.NoError(obs.WaitForNoMessages(WaitTimeout))
 }
 
 func TestModelWorkers(t *testing.T) {

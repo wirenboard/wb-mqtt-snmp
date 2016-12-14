@@ -1,6 +1,7 @@
 package mqtt_snmp
 
 import (
+	l "github.com/alouca/gologger"
 	"github.com/alouca/gosnmp"
 )
 
@@ -12,11 +13,15 @@ type SnmpInterface interface {
 }
 
 // SNMP interface factory type
-// gosnmp.NewGoSNMP implements this
-type SnmpFactory func(address, community string, version gosnmp.SnmpVersion, timeout int64) (SnmpInterface, error)
+type SnmpFactory func(address, community string, version gosnmp.SnmpVersion, timeout int64, debug bool) (SnmpInterface, error)
 
 // GoSNMP NewGoSNMP wrapper
-func NewGoSNMP(address, community string, version gosnmp.SnmpVersion, timeout int64) (SnmpInterface, error) {
+func NewGoSNMP(address, community string, version gosnmp.SnmpVersion, timeout int64, debug bool) (SnmpInterface, error) {
 	i, e := gosnmp.NewGoSNMP(address, community, version, timeout)
+
+	if debug {
+		i.Log = l.CreateLogger(true, true)
+	}
+
 	return i, e
 }
