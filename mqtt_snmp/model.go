@@ -2,7 +2,9 @@ package mqtt_snmp
 
 import (
 	"fmt"
+	"github.com/alouca/gosnmp"
 	"github.com/contactless/wbgo"
+	"net"
 	"time"
 )
 
@@ -26,6 +28,34 @@ type SnmpDevice struct {
 
 	// SNMP connection
 	snmp SnmpInterface
+}
+
+// ConvertSnmpValue tries to convert variable value into string
+func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
+	valid = false
+
+	switch v.Type {
+	case gosnmp.Integer:
+		var d int
+		d, valid = v.Value.(int)
+		if !valid {
+			return
+		}
+		data = fmt.Sprintf("%d", d)
+		valid = true
+	case gosnmp.OctetString:
+		data, valid = v.Value.(string)
+	case gosnmp.IpAddress:
+		var d net.IP
+		d, valid = v.Value.(net.IP)
+		if !valid {
+			return
+		}
+		data = fmt.Sprintf("%s", d)
+		valid = true
+	}
+
+	return
 }
 
 // Create new SNMP device instance from config tree
@@ -162,9 +192,9 @@ LPollWorker:
 				err <- PollError{Channel: r.Channel}
 			} else {
 				for i := range packet.Variables {
-					data, valid := packet.Variables[i].Value.(string)
+					data, valid := ConvertSnmpValue(packet.Variables[i])
 					if !valid {
-						wbgo.Error.Printf("failed to poll %s:%s: instance is not an octet string", dev.DevName, r.Channel.Name)
+						wbgo.Warn.Printf("failed to poll %s:%s: instance is not an octet string", dev.DevName, r.Channel.Name)
 						err <- PollError{Channel: r.Channel}
 					} else {
 						wbgo.Debug.Printf("[poller %d] Send result for request %v: %v", id, r, data)
