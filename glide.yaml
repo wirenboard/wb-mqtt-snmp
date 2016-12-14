@@ -1,0 +1,5 @@
+package: github.com/contactless/wb-mqtt-snmp
+import:
+- package: github.com/alouca/gosnmp
+- package: github.com/contactless/wbgo
+  version: private/webconn/rtimer
