@@ -160,6 +160,7 @@ func NewFakeSNMP(address, community string, version gosnmp.SnmpVersion, timeout 
 type FakeRTimer struct {
 	c           chan time.Time
 	currentTime time.Time
+	sync        chan struct{}
 }
 
 func (t *FakeRTimer) GetChannel() <-chan time.Time {
@@ -171,11 +172,16 @@ func (t *FakeRTimer) Stop() {}
 // Reset adds duration value to local time value and sends a new time message immediately
 func (t *FakeRTimer) Reset(d time.Duration) {
 	t.currentTime = t.currentTime.Add(d)
+	// send sync
+	t.sync <- struct{}{}
 	// fmt.Printf("[FAKETIMER] Updated time: %v\n", t.currentTime)
 }
 
 // Tick sends a new message to the output channel
 func (t *FakeRTimer) Tick() {
+	// wait for sync on Reset()
+	<-t.sync
+
 	// fmt.Printf("[FAKETIMER] Tick %v\n", t.currentTime)
 	t.c <- t.currentTime
 }
@@ -185,9 +191,12 @@ func (t *FakeRTimer) Tick() {
 // d is a first shot duration
 func NewFakeRTimer(localTime time.Time, d time.Duration) *FakeRTimer {
 	t := &FakeRTimer{
-		c:           make(chan time.Time, 1),
+		c:           make(chan time.Time, 16),
 		currentTime: localTime.Add(d),
+		sync:        make(chan struct{}, 1),
 	}
+
+	t.sync <- struct{}{}
 
 	return t
 }
