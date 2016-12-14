@@ -1,0 +1,18 @@
+{
+    "device_type": "local-snmpd",
+    "snmp_version": "2c",
+    "community": "public",
+    "oid_prefix": "SNMPv2-MIB",
+    "channels": [
+    {
+        "name": "System name",
+        "oid": "sysName.0",
+        "poll_interval": 1000
+    },
+    {
+        "name": "System date",
+        "oid": "HOST-RESOURCES-MIB::hrSystemDate.0",
+        "poll_interval": 500
+    }
+    ]
+}

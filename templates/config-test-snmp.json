@@ -1,0 +1,24 @@
+{
+    "device_type": "test-snmp",
+    "snmp_version": "2c",
+    "oid_prefix": "SNMPv2-MIB",
+    "community": "demopublic",
+    "snmp_timeout": 5,
+    "channels": [
+    {
+        "name": "System name",
+        "oid": "sysName.0",
+        "poll_interval": 1000
+    },
+    {
+        "name": "System description 0",
+        "oid": "sysORDescr.1",
+        "poll_interval": 1000
+    },
+    {
+        "name": "Contacts",
+        "oid": "sysContact.0",
+        "poll_interval": 1000
+    }
+    ]
+}
