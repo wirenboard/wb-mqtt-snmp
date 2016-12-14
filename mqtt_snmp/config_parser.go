@@ -21,7 +21,7 @@ const (
 	// Template file regexp
 	TemplatesFileMask = "config-.*\\.json"
 
-	// Default poll interval for channels
+	// Default poll interval for channels (ms)
 	DefaultChannelPollInterval = 1000
 
 	// Default channel control type
@@ -30,8 +30,8 @@ const (
 	// Default SNMP version
 	DefaultSnmpVersion = gosnmp.Version2c
 
-	// Default SNMP timeout (ms)
-	DefaultSnmpTimeout = 1000
+	// Default SNMP timeout (s)
+	DefaultSnmpTimeout = 5
 
 	floatEps = 0.00001 // epsilon to compare floats
 )
