@@ -90,8 +90,8 @@
         }
       },
       
-      "required": ["address"],
-      "defaultProperties": ["address", "device_type", "enabled"]
+      "required": ["address", "community"],
+      "defaultProperties": ["address", "community", "device_type", "enabled"]
     },
 
     "channel": {
@@ -139,7 +139,7 @@
           "propertyOrder": 50
         }
       },
-      "required": [ "name", "oid" ]
+      "required": [ "name", "oid", "control_type" ]
     }
   },
 
