@@ -152,7 +152,7 @@ LPollWorker:
 	for {
 		select {
 		case r := <-req:
-			fmt.Printf("[poll %d] Receive request %v\n", id, r)
+			// fmt.Printf("[poll %d] Receive request %v\n", id, r)
 			// process query
 			dev := m.DeviceChannelMap[r.Channel]
 			packet, e := dev.snmp.Get(r.Channel.Oid)
@@ -167,7 +167,7 @@ LPollWorker:
 						wbgo.Error.Printf("failed to poll %s:%s: instance is not an octet string", dev.DevName, r.Channel.Name)
 						err <- PollError{Channel: r.Channel}
 					} else {
-						fmt.Printf("[poll %d] Send result for request %v: %v\n", id, r, data)
+						// fmt.Printf("[poll %d] Send result for request %v: %v\n", id, r, data)
 						res <- PollResult{Channel: r.Channel, Data: data}
 					}
 				}
@@ -187,7 +187,7 @@ LPublisherWorker:
 	for {
 		select {
 		case d := <-data:
-			fmt.Printf("[publisher] Receive data %+v\n", d)
+			// fmt.Printf("[publisher] Receive data %+v\n", d)
 
 			// process received data
 			// get device of given channel
@@ -232,7 +232,7 @@ func (m *SnmpModel) PollTimerWorker(quit <-chan struct{}, done chan struct{}) {
 			return
 		case t = <-m.pollTimer.GetChannel():
 		}
-		fmt.Printf("[POLLTIMEREVENT] Run at %v\n", t)
+		// fmt.Printf("[POLLTIMEREVENT] Run at %v\n", t)
 
 		// start poll and wait until it's done
 		numQueries := m.pollTable.Poll(m.queryChannel, t)
@@ -330,5 +330,5 @@ func (m *SnmpModel) Stop() {
 		}
 	}
 
-	fmt.Printf("Done: poll %d, pub %d, timer %d\n", pollDone, pubDone, pollTimerDone)
+	// fmt.Printf("Done: poll %d, pub %d, timer %d\n", pollDone, pubDone, pollTimerDone)
 }

@@ -65,7 +65,7 @@ func (o *MockDeviceObserver) CheckEvents(list []*MockDeviceEvent, timeout int) e
 				if list[j] != nil && *(list[j]) == event {
 					list[j] = nil
 					gotEvent = true
-					fmt.Printf("Got event %v\n", event)
+					// fmt.Printf("Got event %v\n", event)
 					break
 				}
 			}
@@ -171,12 +171,12 @@ func (t *FakeRTimer) Stop() {}
 // Reset adds duration value to local time value and sends a new time message immediately
 func (t *FakeRTimer) Reset(d time.Duration) {
 	t.currentTime = t.currentTime.Add(d)
-	fmt.Printf("[FAKETIMER] Updated time: %v\n", t.currentTime)
+	// fmt.Printf("[FAKETIMER] Updated time: %v\n", t.currentTime)
 }
 
 // Tick sends a new message to the output channel
 func (t *FakeRTimer) Tick() {
-	fmt.Printf("[FAKETIMER] Tick %v\n", t.currentTime)
+	// fmt.Printf("[FAKETIMER] Tick %v\n", t.currentTime)
 	t.c <- t.currentTime
 }
 
