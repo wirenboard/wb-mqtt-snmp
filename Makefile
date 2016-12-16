@@ -15,7 +15,7 @@ endif
 all: wb-mqtt-snmp
 
 clean:
-	rm -f wb-mqtt-apcsnmp
+	rm -f wb-mqtt-snmp
 
 amd64:
 	$(MAKE) DEB_TARGET_ARCH=amd64
@@ -25,9 +25,19 @@ wb-mqtt-snmp: main.go mqtt_snmp/*.go
 	$(GO_ENV) go build
 
 install:
+	mkdir -p $(DESTDIR)/usr/share/wb-mqtt-confed/schemas/
+	mkdir -p $(DESTDIR)/usr/share/wb-mqtt-snmp/
+	mkdir -p $(DESTDIR)/etc/wb-configs.d/
 	mkdir -p $(DESTDIR)/usr/bin/ $(DESTDIR)/etc/init.d/
+
 	install -m 0755 wb-mqtt-snmp $(DESTDIR)/usr/bin/
-	# install -m 0755  initscripts/wb-mqtt-snmp $(DESTDIR)/etc/init.d/wb-mqtt-snmp
+	install -m 0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf.sample
+	install -m 0644 wb-mqtt-snmp.schema.json $(DESTDIR)/usr/share/wb-mqtt-confed/schemas/wb-mqtt-snmp.schema.json
+
+	cp -rv ./templates $(DESTDIR)/usr/share/wb-mqtt-snmp/templates
+
+test:
+	cd mqtt_snmp && go test -cover
 
 deb: prepare
 	CC=arm-linux-gnueabi-gcc dpkg-buildpackage -b -aarmel -us -uc
