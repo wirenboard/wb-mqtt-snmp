@@ -19,7 +19,7 @@ func TranslateOids(oids []string) (out map[string]string, err error) {
 
 	// call snmptranslate
 	log.Printf("command to run: snmptranslate %#v -On", oids)
-	raw_out, err = exec.Command("snmptranslate", append(oids, "-On")...).Output()
+	raw_out, err = exec.Command("snmptranslate", append(oids, "-On")...).CombinedOutput()
 
 	if err != nil {
 		err = fmt.Errorf("error translating OIDs: %s", string(raw_out))
