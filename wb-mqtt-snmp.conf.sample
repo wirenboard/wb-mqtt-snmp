@@ -3,9 +3,5 @@
   "devices": [{
     "address": "test.net-snmp.org",
     "device_type": "test-snmp"
-  },
-  {
-      "address": "192.168.0.107",
-      "device_type": "local-snmpd"
   }]
 }

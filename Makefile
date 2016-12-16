@@ -32,6 +32,7 @@ install:
 
 	install -m 0755 wb-mqtt-snmp $(DESTDIR)/usr/bin/
 	install -m 0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf.sample
+	install -m 0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf
 	install -m 0644 wb-mqtt-snmp.schema.json $(DESTDIR)/usr/share/wb-mqtt-confed/schemas/wb-mqtt-snmp.schema.json
 
 	cp -rv ./templates $(DESTDIR)/usr/share/wb-mqtt-snmp/templates

@@ -90,8 +90,8 @@
         }
       },
       
-      "required": ["address", "community"],
-      "defaultProperties": ["address", "community", "device_type", "enabled"]
+      "required": ["address"],
+      "defaultProperties": ["address", "device_type", "enabled"]
     },
 
     "channel": {
