@@ -6,6 +6,7 @@ import (
 	"github.com/contactless/wbgo"
 	"net"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -45,6 +46,10 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 		valid = true
 	case gosnmp.OctetString:
 		data, valid = v.Value.(string)
+
+		// check also if value is a text string
+		// TODO: implement DISPLAY-HINT to convert compound values
+		valid = utf8.Valid([]byte(data))
 	case gosnmp.IpAddress:
 		var d net.IP
 		d, valid = v.Value.(net.IP)
@@ -194,7 +199,7 @@ LPollWorker:
 				for i := range packet.Variables {
 					data, valid := ConvertSnmpValue(packet.Variables[i])
 					if !valid {
-						wbgo.Warn.Printf("failed to poll %s:%s: instance is not an octet string", dev.DevName, r.Channel.Name)
+						wbgo.Warn.Printf("failed to poll %s:%s: instance can't be converted to string", dev.DevName, r.Channel.Name)
 						err <- PollError{Channel: r.Channel}
 					} else {
 						wbgo.Debug.Printf("[poller %d] Send result for request %v: %v", id, r, data)
@@ -242,6 +247,7 @@ LPublisherWorker:
 			done <- struct{}{}
 		case e := <-err:
 			_ = e
+			done <- struct{}{}
 			// TODO: process error
 		case <-quit:
 			done <- struct{}{}
