@@ -28,3 +28,15 @@ wb-mqtt-snmp
 
 # Tmp
 .*.swp
+
+# Glide
+glide.lock
+vendor/
+
+# Debian
+debian/*.debhelper
+debian/*.log
+debian/*.substvars
+
+# Lvim
+.lvimrc
