@@ -33,6 +33,9 @@ const (
 	// Default SNMP timeout (s)
 	DefaultSnmpTimeout = 5
 
+	// Default number of workers
+	DefaultNumWorkers = 4
+
 	floatEps = 0.00001 // epsilon to compare floats
 )
 
@@ -165,8 +168,9 @@ func (d *DeviceConfig) GenerateId() string {
 
 // Whole daemon configuration structure
 type DaemonConfig struct {
-	Debug     bool
-	templates deviceTemplatesStorage
+	Debug      bool
+	NumWorkers int
+	templates  deviceTemplatesStorage
 
 	// Devices storage is map from device IDs
 	Devices map[string]*DeviceConfig
@@ -205,9 +209,12 @@ func NewEmptyChannelConfig() *ChannelConfig {
 // JSON unmarshaller for DaemonConfig
 func (c *DaemonConfig) UnmarshalJSON(raw []byte) error {
 	var root struct {
-		Debug   bool
-		Devices []map[string]interface{}
+		Debug      bool
+		NumWorkers int `json:"num_workers"`
+		Devices    []map[string]interface{}
 	}
+
+	root.NumWorkers = DefaultNumWorkers
 
 	if err := json.Unmarshal(raw, &root); err != nil {
 		return fmt.Errorf("can't parse config JSON file: %s", err.Error())

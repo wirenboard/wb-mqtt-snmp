@@ -271,7 +271,8 @@ func (m *ModelWorkersTest) SetupTest() {
 
 	// create config
 	m.config = &DaemonConfig{
-		Debug: true,
+		Debug:      true,
+		NumWorkers: 4,
 		Devices: map[string]*DeviceConfig{
 			"snmp_device1": &DeviceConfig{
 				Name:        "Device 1",

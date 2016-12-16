@@ -12,9 +12,6 @@ import (
 const (
 	// Size of channels buffer
 	CHAN_BUFFER_SIZE = 128
-
-	// Number of connections per time (TODO: move to config)
-	NUM_WORKERS = 4
 )
 
 // SNMP device object
@@ -301,7 +298,7 @@ func (m *SnmpModel) Start() error {
 	m.queryChannel = make(chan PollQuery, CHAN_BUFFER_SIZE)
 	m.resultChannel = make(chan PollResult, CHAN_BUFFER_SIZE)
 	m.errorChannel = make(chan PollError, CHAN_BUFFER_SIZE)
-	m.quitChannels = make([]chan struct{}, NUM_WORKERS+2) // +2 for publisher and poll timer
+	m.quitChannels = make([]chan struct{}, m.config.NumWorkers+2) // +2 for publisher and poll timer
 	m.pollDoneChannel = make(chan struct{}, CHAN_BUFFER_SIZE)
 	m.pubDoneChannel = make(chan struct{}, CHAN_BUFFER_SIZE)
 	m.pollTimerDoneChannel = make(chan struct{})
@@ -316,20 +313,21 @@ func (m *SnmpModel) Start() error {
 	}
 
 	// start workers and publisher
-	for i := 0; i < NUM_WORKERS; i++ {
+	for i := 0; i < m.config.NumWorkers; i++ {
 		go m.PollWorker(i, m.queryChannel, m.resultChannel, m.errorChannel, m.quitChannels[i], m.pollDoneChannel)
 	}
-	go m.PublisherWorker(m.resultChannel, m.errorChannel, m.quitChannels[NUM_WORKERS], m.pubDoneChannel)
+	go m.PublisherWorker(m.resultChannel, m.errorChannel, m.quitChannels[m.config.NumWorkers], m.pubDoneChannel)
 
-	go m.PollTimerWorker(m.quitChannels[NUM_WORKERS+1], m.pollTimerDoneChannel)
+	go m.PollTimerWorker(m.quitChannels[m.config.NumWorkers+1], m.pollTimerDoneChannel)
 
 	// start poll timer
 	// configure local timer if it was not configured yet
 	if m.pollTimer == nil {
 		nextPoll, err := m.pollTable.NextPollTime()
 		if err != nil {
-			// TODO: log something
+			wbgo.Error.Fatalf("unable to get next poll time: %s", err)
 			m.Stop()
+			return err
 		}
 		m.SetPollTimer(wbgo.NewRealRTimer(nextPoll.Sub(time.Now())))
 	}

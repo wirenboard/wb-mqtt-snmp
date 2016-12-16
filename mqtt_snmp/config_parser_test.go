@@ -33,6 +33,14 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 		return false
 	}
 
+	// check number of workers
+	if a.NumWorkers != b.NumWorkers {
+		if verbose {
+			wbgo.Debug.Print("num_workers mismatch")
+		}
+		return false
+	}
+
 	if len(a.Devices) != len(b.Devices) {
 		if verbose {
 			wbgo.Debug.Print("devices number mismatch")
