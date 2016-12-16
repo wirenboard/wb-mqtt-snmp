@@ -7,16 +7,19 @@
     {
         "name": "System name",
         "oid": "sysName.0",
+        "type": "text",
         "poll_interval": 1000
     },
     {
         "name": "System date",
         "oid": "HOST-RESOURCES-MIB::hrSystemDate.0",
+        "type": "text",
         "poll_interval": 500
     },
     {
         "name": "Services",
         "oid": "sysServices.0",
+        "type": "value",
         "poll_interval": 2000
     }
     ]
