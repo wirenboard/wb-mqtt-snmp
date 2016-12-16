@@ -221,6 +221,7 @@ func (c *DaemonConfig) UnmarshalJSON(raw []byte) error {
 	}
 
 	c.Debug = root.Debug
+	c.NumWorkers = root.NumWorkers
 	c.Devices = make(map[string]*DeviceConfig)
 
 	// parse devices config

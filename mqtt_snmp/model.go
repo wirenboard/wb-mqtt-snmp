@@ -279,7 +279,6 @@ func (m *SnmpModel) PollTimerWorker(quit <-chan struct{}, done chan struct{}) {
 		// setup timer to next poll time
 		nextPoll, err := m.pollTable.NextPollTime()
 		if err != nil {
-			// TODO: log something
 			panic("Error getting next poll time from table")
 		}
 		m.pollTimer.Reset(nextPoll.Sub(t))
