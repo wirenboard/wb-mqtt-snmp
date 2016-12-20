@@ -33,7 +33,22 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 	valid = false
 
 	switch v.Type {
+	case gosnmp.Gauge32:
+		fallthrough
+	case gosnmp.Counter32:
+		fallthrough
+	case gosnmp.Counter64:
+		var d uint64
+		d, valid = v.Value.(uint64)
+		if !valid {
+			return
+		}
+		data = fmt.Sprintf("%d", d)
+		valid = true
+
 	case gosnmp.Integer:
+		fallthrough
+	case gosnmp.Uinteger32:
 		var d int
 		d, valid = v.Value.(int)
 		if !valid {
@@ -41,6 +56,7 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 		}
 		data = fmt.Sprintf("%d", d)
 		valid = true
+
 	case gosnmp.OctetString:
 		data, valid = v.Value.(string)
 
@@ -54,6 +70,14 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 			return
 		}
 		data = fmt.Sprintf("%s", d)
+		valid = true
+	case gosnmp.TimeTicks:
+		var d int
+		d, valid = v.Value.(int)
+		if !valid {
+			return
+		}
+		data = fmt.Sprintf("%s", time.Duration(d*10)*time.Millisecond)
 		valid = true
 	}
 
