@@ -545,6 +545,17 @@ func (d *DeviceConfig) parseChannels(chans []map[string]interface{}) error {
 
 // Parse single channel entry
 func (d *DeviceConfig) parseChannelEntry(channel map[string]interface{}) error {
+	// check if channel is enabled
+	if enableEntry, ok := channel["enabled"]; ok {
+		if enableValue, valid := enableEntry.(bool); valid {
+			if !enableValue {
+				return nil // device is disabled, nothing to do here
+			}
+		} else {
+			return fmt.Errorf("'enable' must be bool, %T given", enableEntry)
+		}
+	} // if 'enable' is not presented, think that device is enabled by default
+
 	// create channel config struct
 	c := NewEmptyChannelConfig()
 

@@ -15,6 +15,13 @@
       "title": "SNMP device",
 
       "properties": {
+        "enabled": {
+          "type": "boolean",
+          "title": "Enable device",
+          "default": true,
+          "_format": "checkbox",
+          "propertyOrder": 1
+        },
         "name": {
           "type": "string",
           "title": "Device name",
@@ -46,13 +53,6 @@
             "pattern": "^.*\\.json"
           },
           "propertyOrder": 40
-        },
-        "enabled": {
-          "type": "boolean",
-          "title": "Enable device",
-          "default": true,
-          "_format": "checkbox",
-          "propertyOrder": 50
         },
         "community": {
           "type": "string",
@@ -107,6 +107,13 @@
       "title": "Channel",
 
       "properties": {
+        "enabled": {
+          "type": "boolean",
+          "title": "Enable channel",
+          "default": true,
+          "_format": "checkbox",
+          "propertyOrder": 1
+        },
         "name": {
           "type": "string",
           "title": "Control name",

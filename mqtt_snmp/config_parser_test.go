@@ -247,6 +247,10 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 				"poll_interval": 1300,
 				"channels": [
 					{
+						"name": "channel1",
+						"enabled": false
+					},
+					{
 						"name": "channel2",
 						"poll_interval": 1500
 					}
@@ -320,14 +324,6 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 				SnmpVersion: gosnmp.Version2c,
 				SnmpTimeout: DefaultSnmpTimeout,
 				Channels: map[string]*ChannelConfig{
-					"channel1": &ChannelConfig{
-						Name:         "channel1",
-						Oid:          ".1.2.3.4.4",
-						ControlType:  "value",
-						Conv:         AsIs,
-						PollInterval: 1300,
-						Units:        "U",
-					},
 					"channel2": &ChannelConfig{
 						Name:         "channel2",
 						Oid:          ".1.2.3.4.5",
