@@ -3,9 +3,10 @@ Maintainer: Nikita Maslov <n.maslov@contactless.ru>
 Section: misc
 Priority: optional
 Standards-Version: 3.9.2
-Build-Depends: debhelper (>= 9), pkg-config
+Build-Depends: debhelper (>= 9), pkg-config 
 
 Package: wb-mqtt-snmp
 Architecture: any
-Depends: libc6 (>= 2.13), snmp (>= 5.4.3~dfsg), ${misc:Depends}
+Depends: libc6 (>= 2.13), lsb-base (>=3.0-6), snmp (>= 5.4.3~dfsg), ${misc:Depends}
 Description: Wiren Board MQTT to SNMP gateway
+ This package contains a driver to let SNMP devices publish their variables into MQTT.
