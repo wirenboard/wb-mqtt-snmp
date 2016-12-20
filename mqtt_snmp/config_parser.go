@@ -141,10 +141,10 @@ func isNumericControlType(ctype string) bool {
 
 // Final structures
 type ChannelConfig struct {
-	Name, Oid, ControlType string
-	Conv                   ValueConverter
-	PollInterval           int
-	Device                 *DeviceConfig
+	Name, Oid, ControlType, Units string
+	Conv                          ValueConverter
+	PollInterval                  int
+	Device                        *DeviceConfig
 }
 
 type DeviceConfig struct {
@@ -204,7 +204,7 @@ func NewEmptyDeviceConfig() *DeviceConfig {
 
 // Make empty channel config
 func NewEmptyChannelConfig() *ChannelConfig {
-	return &ChannelConfig{ControlType: DefaultChannelControlType, Conv: AsIs, PollInterval: DefaultChannelPollInterval}
+	return &ChannelConfig{ControlType: DefaultChannelControlType, Conv: AsIs, PollInterval: DefaultChannelPollInterval, Units: ""}
 }
 
 // JSON unmarshaller for DaemonConfig
@@ -589,6 +589,16 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]interface{}) error {
 	c.PollInterval = d.PollInterval
 	if err := copyInt(&channel, "poll_interval", &(c.PollInterval), false); err != nil {
 		return err
+	}
+
+	// units is optional and works only for control_type == value
+	if err := copyString(&channel, "units", &(c.Units), false); err != nil {
+		return err
+	}
+
+	if c.Units != "" && c.ControlType != "value" {
+		wbgo.Warn.Println("units given for non-'value' channel ", c.Name, ", skipping it")
+		c.Units = ""
 	}
 
 	// append channel config to device

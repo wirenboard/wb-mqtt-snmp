@@ -153,7 +153,9 @@ func (s *ConfigParserSuite) createDefaultTemplates() (err error) {
 		"channels": [
 			{
 				"name": "channel1",
-				"oid": ".1.2.3.4.4"
+				"oid": ".1.2.3.4.4",
+				"type": "value",
+				"units": "U"
 			},
 			{
 				"name": "channel2",
@@ -298,6 +300,7 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 						ControlType:  "value",
 						Conv:         AsIs,
 						PollInterval: 1000,
+						Units:        "U",
 					},
 					"channel2": &ChannelConfig{
 						Name:         "channel2",
@@ -323,6 +326,7 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 						ControlType:  "value",
 						Conv:         AsIs,
 						PollInterval: 1300,
+						Units:        "U",
 					},
 					"channel2": &ChannelConfig{
 						Name:         "channel2",

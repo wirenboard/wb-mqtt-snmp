@@ -235,7 +235,11 @@ LPublisherWorker:
 				// create value in cache and create new control in MQTT
 				dev.Cache[d.Channel] = d.Data
 				// TODO: read-only, max value and retain flags
-				dev.Observer.OnNewControl(dev, d.Channel.Name, d.Channel.ControlType, d.Data, true, -1, true)
+				controlType := d.Channel.ControlType
+				if d.Channel.Units != "" {
+					controlType = controlType + ":" + d.Channel.Units
+				}
+				dev.Observer.OnNewControl(dev, d.Channel.Name, controlType, d.Data, true, -1, true)
 			} else if val != d.Data {
 				dev.Cache[d.Channel] = d.Data
 				// send new value only if it has been changed

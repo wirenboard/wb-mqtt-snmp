@@ -288,6 +288,7 @@ func (m *ModelWorkersTest) SetupTest() {
 						ControlType:  "value",
 						Conv:         AsIs,
 						PollInterval: 1000,
+						Units:        "U",
 					},
 					"channel2": &ChannelConfig{
 						Name:         "channel2",
@@ -360,7 +361,7 @@ func (m *ModelWorkersTest) TestPublisherWorker() {
 	}
 
 	// compare mock logs
-	m.Equal(<-obs.Log, MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel1, type value, value foo"})
+	m.Equal(<-obs.Log, MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel1, type value:U, value foo"})
 	m.Equal(<-obs.Log, MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel1, value bar"})
 	m.Equal(<-obs.Log, MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel1, value baz"})
 }
@@ -477,7 +478,7 @@ func (m *ModelWorkersTest) TestModel() {
 
 	// Receive new events
 	events1 := []*MockDeviceEvent{
-		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel1, type value, value foo"},
+		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel1, type value:U, value foo"},
 		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel2, type value, value bar"},
 	}
 
