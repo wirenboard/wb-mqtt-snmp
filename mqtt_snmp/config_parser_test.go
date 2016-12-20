@@ -242,10 +242,11 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 				"community": "test",
 				"device_type": "type2",
 				"snmp_version": "2c",
+				"poll_interval": 1300,
 				"channels": [
 					{
 						"name": "channel2",
-						"poll_interval": 500
+						"poll_interval": 1500
 					}
 				]
 			},
@@ -272,7 +273,8 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 	s.Ck("failed to parse config", err)
 
 	expect := DaemonConfig{
-		Debug: false,
+		Debug:      false,
+		NumWorkers: DefaultNumWorkers,
 		Devices: map[string]*DeviceConfig{
 			"snmp_127.0.0.1_test": &DeviceConfig{
 				Name:        "SNMP 127.0.0.1_test",
@@ -320,14 +322,14 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 						Oid:          ".1.2.3.4.4",
 						ControlType:  "value",
 						Conv:         AsIs,
-						PollInterval: 1000,
+						PollInterval: 1300,
 					},
 					"channel2": &ChannelConfig{
 						Name:         "channel2",
 						Oid:          ".1.2.3.4.5",
 						ControlType:  "value",
 						Conv:         AsIs,
-						PollInterval: 500,
+						PollInterval: 1500,
 					},
 				},
 			},
@@ -369,7 +371,8 @@ func (s *ConfigParserSuite) TestOidPrefix() {
 	s.Ck("failed to parse config", err)
 
 	expect := DaemonConfig{
-		Debug: false,
+		Debug:      false,
+		NumWorkers: DefaultNumWorkers,
 		Devices: map[string]*DeviceConfig{
 			"snmp_127.0.0.1": &DeviceConfig{
 				Name:        "SNMP 127.0.0.1",

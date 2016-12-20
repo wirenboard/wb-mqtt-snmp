@@ -81,6 +81,14 @@
           "default": 5,
           "propertyOrder": 90
         },
+        "poll_interval": {
+          "type": "integer",
+          "title": "Desired default poll interval (ms)",
+          "description" : "This option specifies the desired interval between two consecutive polls of each channel (or total duration of the poll cycle)",
+          "minimum": 0,
+          "default": 1000,
+          "propertyOrder": 95
+        },
         "channels": {
           "type": "array",
           "title": "List of channels",
@@ -123,6 +131,14 @@
           "propertyOrder": 30
         },
 
+        "units": {
+            "type": "string",
+            "title": "Units",
+            "default": "",
+            "description": "Value units of measure (V, A, kWh etc.). Only for control_type == 'value'",
+            "propertyOrder": 35
+        },
+
         "scale": {
           "type": "number",
           "title": "Scale (value multiplier)",
@@ -151,9 +167,9 @@
       "_format": "checkbox",
       "propertyOrder": 10
     },
-    "num_connection": {
+    "num_workers": {
         "type": "integer",
-        "title": "Number of connections",
+        "title": "Number of SNMP connections",
         "description": "Number of SNMP clients running simultaneously",
         "default": 4,
         "maximum": 64,

@@ -152,6 +152,7 @@ type DeviceConfig struct {
 	OidPrefix                                string
 	SnmpVersion                              gosnmp.SnmpVersion
 	SnmpTimeout                              int
+	PollInterval                             int
 
 	// Channels is map from channel names
 	Channels map[string]*ChannelConfig
@@ -198,7 +199,7 @@ func NewDaemonConfig(input io.Reader, templatesDir string) (config *DaemonConfig
 // Make empty device config, fill it with
 // default configuration values such as SnmpVersion and SnmpTimeout
 func NewEmptyDeviceConfig() *DeviceConfig {
-	return &DeviceConfig{DeviceType: "", Community: "", SnmpVersion: DefaultSnmpVersion, SnmpTimeout: DefaultSnmpTimeout, OidPrefix: ""}
+	return &DeviceConfig{DeviceType: "", Community: "", SnmpVersion: DefaultSnmpVersion, SnmpTimeout: DefaultSnmpTimeout, OidPrefix: "", PollInterval: DefaultChannelPollInterval}
 }
 
 // Make empty channel config
@@ -501,6 +502,9 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 	if err := copyString(&devEntry, "oid_prefix", &(d.OidPrefix), false); err != nil {
 		return err
 	}
+	if err := copyInt(&devEntry, "poll_interval", &(d.PollInterval), false); err != nil {
+		return err
+	}
 
 	d.Channels = make(map[string]*ChannelConfig)
 
@@ -582,6 +586,7 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]interface{}) error {
 	}
 
 	// poll interval is optional
+	c.PollInterval = d.PollInterval
 	if err := copyInt(&channel, "poll_interval", &(c.PollInterval), false); err != nil {
 		return err
 	}
