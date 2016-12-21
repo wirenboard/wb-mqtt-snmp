@@ -144,6 +144,7 @@ type ChannelConfig struct {
 	Name, Oid, ControlType, Units string
 	Conv                          ValueConverter
 	PollInterval                  int
+	Order                         int
 	Device                        *DeviceConfig
 }
 
@@ -204,7 +205,7 @@ func NewEmptyDeviceConfig() *DeviceConfig {
 
 // Make empty channel config
 func NewEmptyChannelConfig() *ChannelConfig {
-	return &ChannelConfig{ControlType: DefaultChannelControlType, Conv: AsIs, PollInterval: DefaultChannelPollInterval, Units: ""}
+	return &ChannelConfig{ControlType: DefaultChannelControlType, Conv: AsIs, PollInterval: DefaultChannelPollInterval, Units: "", Order: 0}
 }
 
 // JSON unmarshaller for DaemonConfig

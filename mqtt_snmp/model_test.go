@@ -21,14 +21,14 @@ func Timeout(d int, c chan struct{}) {
 type MockDeviceEventType int
 
 const (
-	OnValueEvent      MockDeviceEventType = 1
-	OnNewControlEvent MockDeviceEventType = 2
-
 	// Event waiting timeout
 	EventTimeout = 1000
 
 	// Wait timeout to check there's no more messages in channel
 	WaitTimeout = 200
+
+	OnValueEvent MockDeviceEventType = iota
+	OnNewControlEvent
 )
 
 type MockDeviceEvent struct {
@@ -48,11 +48,11 @@ func (o *MockDeviceObserver) OnValue(dev wbgo.DeviceModel, name, value string) {
 	o.Log <- MockDeviceEvent{OnValueEvent, fmt.Sprintf("device %s, name %s, value %s", dev.Name(), name, value)}
 }
 
-func (o *MockDeviceObserver) OnNewControl(dev wbgo.LocalDeviceModel, name, controlType, value string, readonly bool, max float64, retain bool) string {
+func (o *MockDeviceObserver) OnNewControl(dev wbgo.LocalDeviceModel, control wbgo.Control) string {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
-	o.Log <- MockDeviceEvent{OnNewControlEvent, fmt.Sprintf("device %s, name %s, type %s, value %s", dev.Name(), name, controlType, value)}
-	return value
+	o.Log <- MockDeviceEvent{OnNewControlEvent, fmt.Sprintf("device %s, name %s, type %s, value %s, order %d", dev.Name(), control.Name, control.GetType(), control.Value, control.Order)}
+	return control.Value
 }
 
 // CheckEvents checks if all events from list were pushed into log (maybe in another order)
@@ -361,7 +361,7 @@ func (m *ModelWorkersTest) TestPublisherWorker() {
 	}
 
 	// compare mock logs
-	m.Equal(<-obs.Log, MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel1, type value:U, value foo"})
+	m.Equal(<-obs.Log, MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel1, type value, value foo, order 0"})
 	m.Equal(<-obs.Log, MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel1, value bar"})
 	m.Equal(<-obs.Log, MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel1, value baz"})
 }
@@ -478,8 +478,8 @@ func (m *ModelWorkersTest) TestModel() {
 
 	// Receive new events
 	events1 := []*MockDeviceEvent{
-		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel1, type value:U, value foo"},
-		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel2, type value, value bar"},
+		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel1, type value, value foo, order 0"},
+		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel2, type value, value bar, order 0"},
 	}
 
 	m.NoError(obs.CheckEvents(events1, EventTimeout))

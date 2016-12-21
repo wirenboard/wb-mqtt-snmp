@@ -263,7 +263,7 @@ LPublisherWorker:
 				if d.Channel.Units != "" {
 					controlType = controlType + ":" + d.Channel.Units
 				}
-				dev.Observer.OnNewControl(dev, d.Channel.Name, controlType, d.Data, true, -1, true)
+				dev.Observer.OnNewControl(dev, wbgo.Control{Name: d.Channel.Name, Type: controlType, Value: d.Data, Order: 0})
 			} else if val != d.Data {
 				dev.Cache[d.Channel] = d.Data
 				// send new value only if it has been changed
