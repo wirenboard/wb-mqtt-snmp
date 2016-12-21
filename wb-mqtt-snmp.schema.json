@@ -162,7 +162,7 @@
           "propertyOrder": 50
         }
       },
-      "required": [ "name", "oid", "control_type" ]
+      "required": [ "name" ]
     }
   },
 
