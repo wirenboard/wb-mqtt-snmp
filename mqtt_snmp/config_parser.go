@@ -253,7 +253,7 @@ func copyInt(fromMap *map[string]interface{}, key string, to *int, required bool
 		if val, valid := entry.(float64); valid {
 			*to = int(val)
 		} else {
-			return fmt.Errorf("%s must be int, but %T given", key, entry)
+			return fmt.Errorf("%s must be float64, but %T given", key, entry)
 		}
 	} else {
 		if required {
@@ -303,6 +303,23 @@ func copyFloat64(fromMap *map[string]interface{}, key string, to *float64, requi
 	}
 
 	return nil
+}
+
+func (c *DaemonConfig) checkEnabled(channel map[string]interface{}) (bool, error) {
+	enabled := true
+
+	// check if channel is enabled
+	if enableEntry, ok := channel["enabled"]; ok {
+		if enableValue, valid := enableEntry.(bool); valid {
+			if !enableValue {
+				enabled = false
+			}
+		} else {
+			return false, fmt.Errorf("'enabled' must be bool, %T given", enableEntry)
+		}
+	} // if 'enable' is not presented, think that device is enabled by default
+
+	return enabled, nil
 }
 
 // Parse devices list
@@ -371,33 +388,40 @@ func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry map[string]interface{}
 	tplChannelsMap := make(map[string]map[string]interface{})
 	devChannelsMap := make(map[string]map[string]interface{})
 
-	createMap := func(l []interface{}, m map[string]map[string]interface{}) error {
+	// this also returns list of channel names in original order (or error)
+	createMap := func(l []interface{}, m map[string]map[string]interface{}) ([]string, error) {
+		names := make([]string, 0, 10)
+
 		for _, chanEntry := range l {
 			if channel, valid := chanEntry.(map[string]interface{}); valid {
 				if name, err := getNameFromEntry(&channel); err == nil {
 
 					// check name collision first
 					if _, ok := m[name]; ok {
-						return fmt.Errorf("channel name collision: %s", name)
+						return nil, fmt.Errorf("channel name collision: %s", name)
 					}
 
 					m[name] = channel
+					names = append(names, name)
 				} else {
-					return err
+					return nil, err
 				}
 			} else {
-				return fmt.Errorf("channel config must be object, %T given", chanEntry)
+				return nil, fmt.Errorf("channel config must be object, %T given", chanEntry)
 			}
 		}
 
-		return nil
+		return names, nil
 	}
 
-	if err := createMap(tplChannelsList, tplChannelsMap); err != nil {
+	var tplChannelNames, devChannelNames []string
+	var err error
+
+	if tplChannelNames, err = createMap(tplChannelsList, tplChannelsMap); err != nil {
 		return fmt.Errorf("template error: %s", err)
 	}
 
-	if err := createMap(devChannelsList, devChannelsMap); err != nil {
+	if devChannelNames, err = createMap(devChannelsList, devChannelsMap); err != nil {
 		return fmt.Errorf("config error: %s", err)
 	}
 
@@ -413,6 +437,42 @@ func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry map[string]interface{}
 			// create new entry
 			tplChannelsMap[name] = channel
 		}
+	}
+
+	// remove disabled channels
+	for name, _ := range tplChannelsMap {
+		if enabled, err := c.checkEnabled(tplChannelsMap[name]); err != nil {
+			return err
+		} else if !enabled {
+			delete(tplChannelsMap, name)
+		}
+	}
+
+	// create order map
+	order := make(map[string]float64)
+	currentOrder := 1
+
+	// channels from template are going first
+	for _, name := range tplChannelNames {
+		if _, ok := tplChannelsMap[name]; ok {
+			order[name] = float64(currentOrder) // XXX: this is dirty, don't try this at home
+			currentOrder += 1
+		}
+	}
+
+	// then append names from config if not present yet
+	for _, name := range devChannelNames {
+		if _, ok := order[name]; !ok {
+			if _, ok := tplChannelsMap[name]; ok {
+				order[name] = float64(currentOrder) // XXX: this is dirty, don't try this at home
+				currentOrder += 1
+			}
+		}
+	}
+
+	// add order entries to all channels
+	for name, _ := range tplChannelsMap {
+		tplChannelsMap[name]["order"] = order[name]
 	}
 
 	// expose channelsMap to entry
@@ -546,16 +606,6 @@ func (d *DeviceConfig) parseChannels(chans []map[string]interface{}) error {
 
 // Parse single channel entry
 func (d *DeviceConfig) parseChannelEntry(channel map[string]interface{}) error {
-	// check if channel is enabled
-	if enableEntry, ok := channel["enabled"]; ok {
-		if enableValue, valid := enableEntry.(bool); valid {
-			if !enableValue {
-				return nil // device is disabled, nothing to do here
-			}
-		} else {
-			return fmt.Errorf("'enable' must be bool, %T given", enableEntry)
-		}
-	} // if 'enable' is not presented, think that device is enabled by default
 
 	// create channel config struct
 	c := NewEmptyChannelConfig()
@@ -611,6 +661,11 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]interface{}) error {
 	if c.Units != "" && c.ControlType != "value" {
 		wbgo.Warn.Println("units given for non-'value' channel ", c.Name, ", skipping it")
 		c.Units = ""
+	}
+
+	// add order
+	if err := copyInt(&channel, "order", &(c.Order), true); err != nil {
+		return err
 	}
 
 	// append channel config to device

@@ -60,6 +60,7 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 
 		if len(a.Devices[dkey].Channels) != len(b.Devices[dkey].Channels) {
 			wbgo.Debug.Printf("device %s number of channel mismatch", dkey)
+			wbgo.Debug.Printf("%d vs %d", len(a.Devices[dkey].Channels), len(b.Devices[dkey].Channels))
 			return false
 		}
 
@@ -95,7 +96,8 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 			if cvalue.Name != b_cvalue.Name ||
 				cvalue.Oid != b_cvalue.Oid ||
 				cvalue.ControlType != b_cvalue.ControlType ||
-				cvalue.PollInterval != b_cvalue.PollInterval {
+				cvalue.PollInterval != b_cvalue.PollInterval ||
+				cvalue.Order != b_cvalue.Order {
 				if verbose {
 					wbgo.Debug.Printf("device %s channel %s configuration mismatch", dkey, ckey)
 					wbgo.Debug.Printf("%+v", cvalue)
@@ -297,6 +299,7 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 						ControlType:  "value",
 						Conv:         Scale(0.1),
 						PollInterval: 1000,
+						Order:        3,
 					},
 					"channel1": &ChannelConfig{
 						Name:         "channel1",
@@ -305,6 +308,7 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 						Conv:         AsIs,
 						PollInterval: 1000,
 						Units:        "U",
+						Order:        1,
 					},
 					"channel2": &ChannelConfig{
 						Name:         "channel2",
@@ -312,6 +316,7 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 						ControlType:  "value",
 						Conv:         AsIs,
 						PollInterval: 500,
+						Order:        2,
 					},
 				},
 			},
@@ -330,6 +335,7 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 						ControlType:  "value",
 						Conv:         AsIs,
 						PollInterval: 1500,
+						Order:        1,
 					},
 				},
 			},
@@ -390,6 +396,7 @@ func (s *ConfigParserSuite) TestOidPrefix() {
 						ControlType:  "value",
 						Conv:         AsIs,
 						PollInterval: 1000,
+						Order:        1,
 					},
 					"channel2": &ChannelConfig{
 						Name:         "channel2",
@@ -397,6 +404,7 @@ func (s *ConfigParserSuite) TestOidPrefix() {
 						ControlType:  "value",
 						Conv:         AsIs,
 						PollInterval: 1000,
+						Order:        2,
 					},
 					"channel3": &ChannelConfig{
 						Name:         "channel3",
@@ -404,6 +412,7 @@ func (s *ConfigParserSuite) TestOidPrefix() {
 						ControlType:  "value",
 						Conv:         AsIs,
 						PollInterval: 1000,
+						Order:        3,
 					},
 				},
 			},
