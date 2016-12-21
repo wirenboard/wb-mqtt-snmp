@@ -126,7 +126,6 @@
           "type": "string",
           "title": "Object ID",
           "description": "OID (starting from dot) or variable name from MIB",
-          "minLength": 1,
           "propertyOrder": 20
         },
         
