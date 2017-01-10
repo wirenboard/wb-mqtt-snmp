@@ -30,7 +30,6 @@ wb-mqtt-snmp
 .*.swp
 
 # Glide
-glide.lock
 vendor/
 
 # Debian

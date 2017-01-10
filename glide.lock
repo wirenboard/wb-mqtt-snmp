@@ -1,0 +1,28 @@
+hash: dd924d3b8d0696bc531f697d720bd15df0ac2bb6387eeda9ce74ab1df0d327cd
+updated: 2017-01-10T10:24:52.791690376Z
+imports:
+- name: github.com/alouca/gologger
+  version: 7d4b7291de9c9df1b3fe6a3d784b3675b6c0c996
+- name: github.com/alouca/gosnmp
+  version: 9b459058490f02bf70b2075447ee9465b00b98c3
+- name: github.com/contactless/org.eclipse.paho.mqtt.golang
+  version: bc107ec72972f0e7048787415ea061578b5c3f33
+  subpackages:
+  - packets
+- name: github.com/contactless/wb-mqtt-snmp
+  version: 73a138a4c8e22521c4c7db13fb6bb17045f028d7
+  subpackages:
+  - mqtt_snmp
+- name: github.com/contactless/wbgo
+  version: 460958878cacb49485bb5e848c921a8bb806ba00
+- name: golang.org/x/net
+  version: 60c41d1de8da134c05b7b40154a9a82bf5b7edb9
+  subpackages:
+  - websocket
+- name: golang.org/x/sys
+  version: d75a52659825e75fff6158388dddc6a5b04f9ba5
+  subpackages:
+  - unix
+- name: gopkg.in/fsnotify.v1
+  version: 629574ca2a5df945712d3079857300b5e4da0236
+devImports: []
