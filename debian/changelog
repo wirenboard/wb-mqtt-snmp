@@ -1,3 +1,9 @@
+wb-mqtt-snmp (1.0.1) stable; urgency=medium
+
+  * Fix race on pollTimer initialization
+
+ -- Nikita Maslov <n.maslov@contactless.ru>  Fri, 22 Dec 2017 13:03:08 +0300
+
 wb-mqtt-snmp (1.0) stable; urgency=medium
 
   * Initial release
