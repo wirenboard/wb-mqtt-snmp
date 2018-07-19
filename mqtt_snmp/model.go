@@ -340,14 +340,6 @@ func (m *SnmpModel) Start() error {
 		m.Observer.OnNewDevice(m.devices[i])
 	}
 
-	// start workers and publisher
-	for i := 0; i < m.config.NumWorkers; i++ {
-		go m.PollWorker(i, m.queryChannel, m.resultChannel, m.errorChannel, m.quitChannels[i], m.pollDoneChannel)
-	}
-	go m.PublisherWorker(m.resultChannel, m.errorChannel, m.quitChannels[m.config.NumWorkers], m.pubDoneChannel)
-
-	go m.PollTimerWorker(m.quitChannels[m.config.NumWorkers+1], m.pollTimerDoneChannel)
-
 	// start poll timer
 	// configure local timer if it was not configured yet
 	if m.pollTimer == nil {
@@ -359,6 +351,14 @@ func (m *SnmpModel) Start() error {
 		}
 		m.SetPollTimer(wbgo.NewRealRTimer(nextPoll.Sub(time.Now())))
 	}
+
+	// start workers and publisher
+	for i := 0; i < m.config.NumWorkers; i++ {
+		go m.PollWorker(i, m.queryChannel, m.resultChannel, m.errorChannel, m.quitChannels[i], m.pollDoneChannel)
+	}
+	go m.PublisherWorker(m.resultChannel, m.errorChannel, m.quitChannels[m.config.NumWorkers], m.pubDoneChannel)
+
+	go m.PollTimerWorker(m.quitChannels[m.config.NumWorkers+1], m.pollTimerDoneChannel)
 
 	return nil
 }
