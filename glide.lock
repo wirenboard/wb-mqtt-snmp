@@ -1,5 +1,5 @@
-hash: dd924d3b8d0696bc531f697d720bd15df0ac2bb6387eeda9ce74ab1df0d327cd
-updated: 2017-01-10T10:24:52.791690376Z
+hash: c7111f32248faed645c1ed9dff74a3dddb0b684f1865714d03c0c5b3646afeb2
+updated: 2018-09-13T08:03:36.357762019Z
 imports:
 - name: github.com/alouca/gologger
   version: 7d4b7291de9c9df1b3fe6a3d784b3675b6c0c996
@@ -9,12 +9,26 @@ imports:
   version: bc107ec72972f0e7048787415ea061578b5c3f33
   subpackages:
   - packets
-- name: github.com/contactless/wb-mqtt-snmp
-  version: 73a138a4c8e22521c4c7db13fb6bb17045f028d7
-  subpackages:
-  - mqtt_snmp
 - name: github.com/contactless/wbgo
   version: 460958878cacb49485bb5e848c921a8bb806ba00
+  subpackages:
+  - testutils
+- name: github.com/davecgh/go-spew
+  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
+  subpackages:
+  - spew
+- name: github.com/pmezard/go-difflib
+  version: 792786c7400a136282c1664665ae0a8db921c6c2
+  subpackages:
+  - difflib
+- name: github.com/stretchr/objx
+  version: ef50b0de28773081167c97fc27cf29a0bf8b8c71
+- name: github.com/stretchr/testify
+  version: f35b8ab0b5a2cef36673838d662e249dd9c94686
+  subpackages:
+  - assert
+  - require
+  - suite
 - name: golang.org/x/net
   version: 60c41d1de8da134c05b7b40154a9a82bf5b7edb9
   subpackages:
@@ -25,4 +39,4 @@ imports:
   - unix
 - name: gopkg.in/fsnotify.v1
   version: 629574ca2a5df945712d3079857300b5e4da0236
-devImports: []
+testImports: []
