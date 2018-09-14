@@ -41,7 +41,7 @@ install:
 	cp -rv ./templates $(DESTDIR)/usr/share/wb-mqtt-snmp/templates
 
 test:
-	cd mqtt_snmp && go test -cover
+	cd mqtt_snmp && CC= go test -cover
 
 deb: prepare
 	CC=arm-linux-gnueabi-gcc dpkg-buildpackage -b -aarmel -us -uc
