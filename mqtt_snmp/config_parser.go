@@ -3,14 +3,15 @@ package mqtt_snmp
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/alouca/gosnmp"
-	"github.com/contactless/wbgo"
 	"io"
 	"io/ioutil"
 	"math"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/alouca/gosnmp"
+	"github.com/contactless/wbgong"
 )
 
 const (
@@ -121,7 +122,7 @@ func Scale(factor float64) ValueConverter {
 	return func(s string) string {
 		f, err := strconv.ParseFloat(s, 64)
 		if err != nil {
-			wbgo.Warn.Printf("can't convert numeric value: %s", s)
+			wbgong.Warn.Printf("can't convert numeric value: %s", s)
 			return s
 		}
 
@@ -659,7 +660,7 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]interface{}) error {
 	}
 
 	if c.Units != "" && c.ControlType != "value" {
-		wbgo.Warn.Println("units given for non-'value' channel ", c.Name, ", skipping it")
+		wbgong.Warn.Println("units given for non-'value' channel ", c.Name, ", skipping it")
 		c.Units = ""
 	}
 

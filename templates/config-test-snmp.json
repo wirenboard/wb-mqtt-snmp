@@ -8,19 +8,19 @@
     {
         "name": "System name",
         "oid": "sysName.0",
-        "type": "text",
+        "control_type": "text",
         "poll_interval": 1000
     },
     {
         "name": "System description 0",
         "oid": "sysORDescr.1",
-        "type": "text",
+        "control_type": "text",
         "poll_interval": 1000
     },
     {
         "name": "Contacts",
         "oid": "sysContact.0",
-        "type": "text",
+        "control_type": "text",
         "poll_interval": 1000
     }
     ]
