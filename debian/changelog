@@ -1,3 +1,9 @@
+wb-mqtt-snmp (1.1.0) stable; urgency=medium
+
+  * Ported to wbgo.so plugin system
+
+ -- Roman Kubar <r.kubar@wirenboard.ru>  Mon, 16 Dec 2019 01:36:41 +0300
+
 wb-mqtt-snmp (1.0.1) stable; urgency=medium
 
   * Fix race on pollTimer initialization
