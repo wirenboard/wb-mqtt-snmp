@@ -38,6 +38,7 @@ install:
 	install -m 0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf.sample
 	install -m 0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf
 	install -m 0644 wb-mqtt-snmp.schema.json $(DESTDIR)/usr/share/wb-mqtt-confed/schemas/wb-mqtt-snmp.schema.json
+	install -m 0644 $(DEB_TARGET_ARCH).wbgo.so $(DESTDIR)/usr/share/wb-rules/wbgo.so
 
 	cp -rv ./templates $(DESTDIR)/usr/share/wb-mqtt-snmp/templates
 
