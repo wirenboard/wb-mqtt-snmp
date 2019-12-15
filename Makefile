@@ -41,8 +41,8 @@ install:
 
 	cp -rv ./templates $(DESTDIR)/usr/share/wb-mqtt-snmp/templates
 
-test:
-	cd mqtt_snmp && CC= go test -cover
+# test:
+# 	cd mqttsnmp && CC= go test -cover
 
 deb: prepare
 	$(GO_ENV) dpkg-buildpackage -b -a$(DEB_TARGET_ARCH) -us -uc
