@@ -1,4 +1,4 @@
-package mqtt_snmp
+package mqttsnmp
 
 import (
 	"time"
@@ -6,11 +6,7 @@ import (
 	"github.com/contactless/wbgong"
 )
 
-const (
-	DRIVER_CLIENT_ID = "snmp"
-)
-
 // NewSnmpDriver creates snmp driver
 func NewSnmpDriver(config *DaemonConfig, driver wbgong.DeviceDriver) (*SnmpModel, error) {
-	return NewSnmpModel(NewGoSNMP, config, time.Now(), driver)
+	return newSnmpModel(newGoSNMP, config, time.Now(), driver)
 }

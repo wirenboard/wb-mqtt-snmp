@@ -1,14 +1,15 @@
-package mqtt_snmp
+package mqttsnmp
 
 import (
 	"fmt"
-	"github.com/alouca/gosnmp"
-	"github.com/contactless/wbgo"
-	"github.com/contactless/wbgo/testutils"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/alouca/gosnmp"
+	"github.com/contactless/wbgo"
+	"github.com/contactless/wbgo/testutils"
 )
 
 // Timeout routine
@@ -57,12 +58,12 @@ func (o *MockDeviceObserver) OnNewControl(dev wbgo.LocalDeviceModel, control wbg
 
 // CheckEvents checks if all events from list were pushed into log (maybe in another order)
 func (o *MockDeviceObserver) CheckEvents(list []*MockDeviceEvent, timeout int) error {
-	timeout_ch := make(chan struct{})
-	go Timeout(timeout, timeout_ch)
+	timeoutCh := make(chan struct{})
+	go Timeout(timeout, timeoutCh)
 
-	for _ = range list {
+	for range list {
 		select {
-		case <-timeout_ch:
+		case <-timeoutCh:
 			return fmt.Errorf("event timeout")
 		case event := <-o.Log:
 			gotEvent := false
@@ -87,11 +88,11 @@ func (o *MockDeviceObserver) CheckEvents(list []*MockDeviceEvent, timeout int) e
 
 // WaitForNoMessages checks if no messages are going to be received during given interval
 func (o *MockDeviceObserver) WaitForNoMessages(timeout int) error {
-	timeout_ch := make(chan struct{})
-	go Timeout(timeout, timeout_ch)
+	timeoutCh := make(chan struct{})
+	go Timeout(timeout, timeoutCh)
 
 	select {
-	case <-timeout_ch:
+	case <-timeoutCh:
 		return nil
 	case event := <-o.Log:
 		return fmt.Errorf("got unexpected message: %v", event)
@@ -122,11 +123,10 @@ func (snmp *FakeSNMP) Get(oid string) (packet *gosnmp.SnmpPacket, err error) {
 		packet = pkg
 		err = nil
 		return
-	} else {
-		packet = nil
-		err = fmt.Errorf("No such instance")
-		return
 	}
+	packet = nil
+	err = fmt.Errorf("No such instance")
+	return
 }
 
 func InsertFakeSNMPMessage(key string, value string) {
@@ -149,7 +149,7 @@ func InsertFakeSNMPMessage(key string, value string) {
 	}
 }
 
-func NewFakeSNMP(address, community string, version gosnmp.SnmpVersion, timeout int64, debug bool) (snmp SnmpInterface, err error) {
+func newFakeSNMP(address, community string, version gosnmp.SnmpVersion, timeout int64, debug bool) (snmp snmpInterface, err error) {
 	err = nil
 	s := &FakeSNMP{
 		Address:   address,
@@ -235,9 +235,9 @@ type ModelWorkersTest struct {
 	model *SnmpModel
 
 	// Workers channels
-	queryChannel  chan PollQuery
-	resultChannel chan PollResult
-	errorChannel  chan PollError
+	queryChannel  chan pollQuery
+	resultChannel chan pollResult
+	errorChannel  chan pollError
 	quitChannel   chan struct{}
 
 	// Default start time
@@ -264,9 +264,9 @@ func (m *ModelWorkersTest) SetupTest() {
 	m.ModelObserver = NewFakeModelObserver(NewMockDeviceObserver())
 
 	// create channels
-	m.queryChannel = make(chan PollQuery, 128)
-	m.resultChannel = make(chan PollResult, 128)
-	m.errorChannel = make(chan PollError, 128)
+	m.queryChannel = make(chan pollQuery, 128)
+	m.resultChannel = make(chan pollResult, 128)
+	m.errorChannel = make(chan pollError, 128)
 	m.quitChannel = make(chan struct{}, 128)
 
 	// create config
@@ -278,15 +278,15 @@ func (m *ModelWorkersTest) SetupTest() {
 				Name:        "Device 1",
 				Address:     "127.0.0.1",
 				Community:   "test",
-				Id:          "snmp_device1",
+				ID:          "snmp_device1",
 				SnmpVersion: gosnmp.Version2c,
 				SnmpTimeout: 1,
-				Channels: map[string]*ChannelConfig{
+				channels: map[string]*ChannelConfig{
 					"channel1": &ChannelConfig{
 						Name:         "channel1",
 						Oid:          ".1.2.3.4",
 						ControlType:  "value",
-						Conv:         AsIs,
+						Conv:         asIs,
 						PollInterval: 1000,
 						Units:        "U",
 						Order:        1,
@@ -295,7 +295,7 @@ func (m *ModelWorkersTest) SetupTest() {
 						Name:         "channel2",
 						Oid:          ".1.2.3.5",
 						ControlType:  "value",
-						Conv:         AsIs,
+						Conv:         asIs,
 						PollInterval: 2000,
 						Order:        2,
 					},
@@ -306,17 +306,17 @@ func (m *ModelWorkersTest) SetupTest() {
 
 	// setup backward pointers
 	for dev := range m.config.Devices {
-		for ch := range m.config.Devices[dev].Channels {
-			t := m.config.Devices[dev].Channels[ch]
+		for ch := range m.config.Devices[dev].channels {
+			t := m.config.Devices[dev].channels[ch]
 			t.Device = m.config.Devices[dev]
-			m.config.Devices[dev].Channels[ch] = t
+			m.config.Devices[dev].channels[ch] = t
 		}
 	}
 
 	// create model
-	m.model, _ = NewSnmpModel(NewFakeSNMP, m.config, m.StartTime)
+	// m.model, _ = NewSnmpModel(NewFakeSNMP, m.config, m.StartTime)
 
-	m.model.Observe(m.ModelObserver)
+	// m.model.Observe(m.ModelObserver)
 }
 
 func (m *ModelWorkersTest) TearDownTest() {
@@ -327,21 +327,21 @@ func (m *ModelWorkersTest) TearDownTest() {
 func (m *ModelWorkersTest) TestPublisherWorker() {
 	// create observer
 	obs := NewMockDeviceObserver()
-	ch := m.config.Devices["snmp_device1"].Channels["channel1"]
+	ch := m.config.Devices["snmp_device1"].channels["channel1"]
 
 	// observe test device
-	m.model.DeviceChannelMap[ch].Observe(obs)
+	// m.model.DeviceChannelMap[ch].Observe(obs)
 
 	done := make(chan struct{}, 128)
 
 	// launch PublisherWorker
-	go m.model.PublisherWorker(m.resultChannel, m.errorChannel, m.quitChannel, done)
+	go m.model.publisherWorker(m.resultChannel, m.errorChannel, m.quitChannel, done)
 
 	// send some results
-	m.resultChannel <- PollResult{Channel: ch, Data: "foo"}
-	m.resultChannel <- PollResult{Channel: ch, Data: "bar"}
-	m.resultChannel <- PollResult{Channel: ch, Data: "baz"}
-	m.resultChannel <- PollResult{Channel: ch, Data: "baz"}
+	m.resultChannel <- pollResult{channel: ch, data: "foo"}
+	m.resultChannel <- pollResult{channel: ch, data: "bar"}
+	m.resultChannel <- pollResult{channel: ch, data: "baz"}
+	m.resultChannel <- pollResult{channel: ch, data: "baz"}
 
 	// wait for them to be processed
 	for i := 0; i < 4; i++ {
@@ -376,14 +376,14 @@ func (m *ModelWorkersTest) TestPollWorker() {
 	// Create service channels
 	done := make(chan struct{}, 128)
 	t := time.Now()
-	ch1 := m.config.Devices["snmp_device1"].Channels["channel1"]
-	ch2 := m.config.Devices["snmp_device1"].Channels["channel2"]
+	ch1 := m.config.Devices["snmp_device1"].channels["channel1"]
+	ch2 := m.config.Devices["snmp_device1"].channels["channel2"]
 
 	// Run poll worker
-	go m.model.PollWorker(0, m.queryChannel, m.resultChannel, m.errorChannel, m.quitChannel, done)
+	go m.model.pollWorker(0, m.queryChannel, m.resultChannel, m.errorChannel, m.quitChannel, done)
 
 	// Push some requests to model
-	m.queryChannel <- PollQuery{ch1, t}
+	m.queryChannel <- pollQuery{ch1, t}
 	// wait for this to be done
 	timeout1 := make(chan struct{})
 	go Timeout(500, timeout1)
@@ -395,18 +395,18 @@ func (m *ModelWorkersTest) TestPollWorker() {
 	}
 
 	// get result
-	var res PollResult
+	var res pollResult
 	select {
 	case res = <-m.resultChannel:
 	default:
 		m.Fail("no result from poller")
 	}
-	m.Equal(res, PollResult{Channel: ch1, Data: "HelloWorld"})
+	m.Equal(res, pollResult{channel: ch1, data: "HelloWorld"})
 
 	//
 	// Poll new value
 	InsertFakeSNMPMessage("127.0.0.1@test@.1.2.3.4", "GoAway")
-	m.queryChannel <- PollQuery{ch1, t}
+	m.queryChannel <- pollQuery{ch1, t}
 	// wait
 	timeout2 := make(chan struct{})
 	go Timeout(500, timeout2)
@@ -423,11 +423,11 @@ func (m *ModelWorkersTest) TestPollWorker() {
 	default:
 		m.Fail("no result from poller")
 	}
-	m.Equal(res, PollResult{ch1, "GoAway"})
+	m.Equal(res, pollResult{ch1, "GoAway"})
 
 	//
 	// Poll no value and so get error
-	m.queryChannel <- PollQuery{ch2, t}
+	m.queryChannel <- pollQuery{ch2, t}
 	// wait
 	timeout3 := make(chan struct{})
 	go Timeout(500, timeout3)
@@ -438,13 +438,13 @@ func (m *ModelWorkersTest) TestPollWorker() {
 	}
 
 	// get error
-	var er PollError
+	var er pollError
 	select {
 	case er = <-m.errorChannel:
 	default:
 		m.Fail("no error from poller")
 	}
-	m.Equal(er, PollError{Channel: ch2})
+	m.Equal(er, pollError{channel: ch2})
 
 	// close worker
 	m.quitChannel <- struct{}{}
@@ -462,7 +462,7 @@ func (m *ModelWorkersTest) TestPollWorker() {
 func (m *ModelWorkersTest) TestModel() {
 	// Create a fake timer to make poll shots
 	timer := NewFakeRTimer(m.StartTime, 1*time.Millisecond)
-	m.model.SetPollTimer(timer)
+	m.model.setPollTimer(timer)
 
 	// Create fake device observer
 	obs := m.ModelObserver.DevObserver

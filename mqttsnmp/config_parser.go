@@ -1,4 +1,4 @@
-package mqtt_snmp
+package mqttsnmp
 
 import (
 	"encoding/json"
@@ -16,26 +16,26 @@ import (
 
 const (
 	// Default templates directory
-	// TemplatesDirectory = "/usr/share/wb-mqtt-snmp/templates"
-	TemplatesDirectory = "./templates"
+	// templatesDirectory = "/usr/share/wb-mqtt-snmp/templates"
+	templatesDirectory = "./templates"
 
 	// Template file regexp
-	TemplatesFileMask = "config-.*\\.json"
+	templatesFileMask = "config-.*\\.json"
 
 	// Default poll interval for channels (ms)
-	DefaultChannelPollInterval = 1000
+	defaultChannelPollInterval = 1000
 
 	// Default channel control type
-	DefaultChannelControlType = "value"
+	defaultChannelControlType = "value"
 
 	// Default SNMP version
-	DefaultSnmpVersion = gosnmp.Version2c
+	defaultSnmpVersion = gosnmp.Version2c
 
 	// Default SNMP timeout (s)
-	DefaultSnmpTimeout = 5
+	defaultSnmpTimeout = 5
 
 	// Default number of workers
-	DefaultNumWorkers = 4
+	defaultNumWorkers = 4
 
 	floatEps = 0.00001 // epsilon to compare floats
 )
@@ -46,8 +46,8 @@ type deviceTemplatesStorage struct {
 	Valid     bool
 }
 
-// Load template files from directory
-func (tpl *deviceTemplatesStorage) Load(dir string) error {
+// load template files from directory
+func (tpl *deviceTemplatesStorage) load(dir string) error {
 
 	if tpl.Valid {
 		return nil // templates are already loaded
@@ -62,7 +62,7 @@ func (tpl *deviceTemplatesStorage) Load(dir string) error {
 	tpl.templates = make(map[string]map[string]interface{})
 
 	for _, file := range files {
-		m, err := regexp.MatchString(TemplatesFileMask, file.Name())
+		m, err := regexp.MatchString(templatesFileMask, file.Name())
 		if err != nil {
 			return fmt.Errorf("error in filename regexp: %s", err.Error())
 		}
@@ -101,7 +101,7 @@ func (tpl *deviceTemplatesStorage) Load(dir string) error {
 }
 
 // Initialize raw device entry using template
-func (tpl *deviceTemplatesStorage) InitEntry(devType string, entry map[string]interface{}) error {
+func (tpl *deviceTemplatesStorage) initEntry(devType string, entry map[string]interface{}) error {
 	if data, ok := tpl.templates[devType]; ok {
 		for key, value := range data {
 			entry[key] = value
@@ -113,12 +113,12 @@ func (tpl *deviceTemplatesStorage) InitEntry(devType string, entry map[string]in
 	return nil
 }
 
-// Channel value converter type
-type ValueConverter func(string) string
+// valueConverter value converter type
+type valueConverter func(string) string
 
-func AsIs(s string) string { return s }
+func asIs(s string) string { return s }
 
-func Scale(factor float64) ValueConverter {
+func scaleConverter(factor float64) valueConverter {
 	return func(s string) string {
 		f, err := strconv.ParseFloat(s, 64)
 		if err != nil {
@@ -140,36 +140,36 @@ func isNumericControlType(ctype string) bool {
 	return ctype != "text"
 }
 
-// Final structures
+// ChannelConfig contains channel config
 type ChannelConfig struct {
 	Name, Oid, ControlType, Units string
-	Conv                          ValueConverter
+	Conv                          valueConverter
 	PollInterval                  int
 	Order                         int
 	Device                        *DeviceConfig
 }
 
+// DeviceConfig contains device config
 type DeviceConfig struct {
-	Name, Id, Address, DeviceType, Community string
+	Name, ID, Address, DeviceType, Community string
 	OidPrefix                                string
 	SnmpVersion                              gosnmp.SnmpVersion
 	SnmpTimeout                              int
 	PollInterval                             int
 
-	// Channels is map from channel names
-	Channels map[string]*ChannelConfig
+	// channels is map from channel names
+	channels map[string]*ChannelConfig
 }
 
 // Get device ID from community string and address
-func (d *DeviceConfig) GenerateId() string {
+func (d *DeviceConfig) generateID() string {
 	if d.Community != "" {
 		return d.Address + "_" + d.Community
-	} else {
-		return d.Address
 	}
+	return d.Address
 }
 
-// Whole daemon configuration structure
+// DaemonConfig is a whole daemon configuration structure
 type DaemonConfig struct {
 	Debug      bool
 	NumWorkers int
@@ -180,16 +180,15 @@ type DaemonConfig struct {
 }
 
 // Load templates from directory into DaemonConfig storage
-func (c *DaemonConfig) LoadTemplates(path string) (err error) {
-	err = c.templates.Load(path)
+func (c *DaemonConfig) loadTemplates(path string) (err error) {
+	err = c.templates.load(path)
 	return
 }
 
-// Generate daemon config from input stream and directory with templates
-//
+// NewDaemonConfig denerates daemon config from input stream and directory with templates
 func NewDaemonConfig(input io.Reader, templatesDir string) (config *DaemonConfig, err error) {
 	config = &DaemonConfig{}
-	if err = config.LoadTemplates(templatesDir); err != nil {
+	if err = config.loadTemplates(templatesDir); err != nil {
 		return
 	}
 
@@ -198,18 +197,18 @@ func NewDaemonConfig(input io.Reader, templatesDir string) (config *DaemonConfig
 	return
 }
 
-// Make empty device config, fill it with
+// newEmptyDeviceConfig makes empty device config, fill it with
 // default configuration values such as SnmpVersion and SnmpTimeout
-func NewEmptyDeviceConfig() *DeviceConfig {
-	return &DeviceConfig{DeviceType: "", Community: "", SnmpVersion: DefaultSnmpVersion, SnmpTimeout: DefaultSnmpTimeout, OidPrefix: "", PollInterval: DefaultChannelPollInterval}
+func newEmptyDeviceConfig() *DeviceConfig {
+	return &DeviceConfig{DeviceType: "", Community: "", SnmpVersion: defaultSnmpVersion, SnmpTimeout: defaultSnmpTimeout, OidPrefix: "", PollInterval: defaultChannelPollInterval}
 }
 
-// Make empty channel config
-func NewEmptyChannelConfig() *ChannelConfig {
-	return &ChannelConfig{ControlType: DefaultChannelControlType, Conv: AsIs, PollInterval: DefaultChannelPollInterval, Units: "", Order: 0}
+// newEmptyChannelConfig makes empty channel config
+func newEmptyChannelConfig() *ChannelConfig {
+	return &ChannelConfig{ControlType: defaultChannelControlType, Conv: asIs, PollInterval: defaultChannelPollInterval, Units: "", Order: 0}
 }
 
-// JSON unmarshaller for DaemonConfig
+// UnmarshalJSON implements JSON unmarshaller for DaemonConfig
 func (c *DaemonConfig) UnmarshalJSON(raw []byte) error {
 	var root struct {
 		Debug      bool
@@ -217,7 +216,7 @@ func (c *DaemonConfig) UnmarshalJSON(raw []byte) error {
 		Devices    []map[string]interface{}
 	}
 
-	root.NumWorkers = DefaultNumWorkers
+	root.NumWorkers = defaultNumWorkers
 
 	if err := json.Unmarshal(raw, &root); err != nil {
 		return fmt.Errorf("can't parse config JSON file: %s", err.Error())
@@ -441,7 +440,7 @@ func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry map[string]interface{}
 	}
 
 	// remove disabled channels
-	for name, _ := range tplChannelsMap {
+	for name := range tplChannelsMap {
 		if enabled, err := c.checkEnabled(tplChannelsMap[name]); err != nil {
 			return err
 		} else if !enabled {
@@ -457,7 +456,7 @@ func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry map[string]interface{}
 	for _, name := range tplChannelNames {
 		if _, ok := tplChannelsMap[name]; ok {
 			order[name] = float64(currentOrder) // XXX: this is dirty, don't try this at home
-			currentOrder += 1
+			currentOrder++
 		}
 	}
 
@@ -466,13 +465,13 @@ func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry map[string]interface{}
 		if _, ok := order[name]; !ok {
 			if _, ok := tplChannelsMap[name]; ok {
 				order[name] = float64(currentOrder) // XXX: this is dirty, don't try this at home
-				currentOrder += 1
+				currentOrder++
 			}
 		}
 	}
 
 	// add order entries to all channels
-	for name, _ := range tplChannelsMap {
+	for name := range tplChannelsMap {
 		tplChannelsMap[name]["order"] = order[name]
 	}
 
@@ -481,7 +480,7 @@ func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry map[string]interface{}
 	i := 0
 	for _, value := range tplChannelsMap {
 		chanList[i] = value
-		i += 1
+		i++
 	}
 
 	tplEntry["channels"] = chanList
@@ -511,7 +510,7 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 	// device_type is optional; if not present, just don't apply template
 	if devTypeEntry, ok := devConfig["device_type"]; ok {
 		if devType, valid = devTypeEntry.(string); valid {
-			if err := c.templates.InitEntry(devType, devEntry); err != nil {
+			if err := c.templates.initEntry(devType, devEntry); err != nil {
 				return err
 			}
 		} else {
@@ -525,7 +524,7 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 	}
 
 	// Parse whole tree
-	d := NewEmptyDeviceConfig()
+	d := newEmptyDeviceConfig()
 
 	// insert entries in a hard way
 	// address field is required
@@ -538,18 +537,18 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 	}
 
 	// fill default values
-	d.Name = "SNMP " + d.GenerateId()
-	d.Id = "snmp_" + d.GenerateId()
+	d.Name = "SNMP " + d.generateID()
+	d.ID = "snmp_" + d.generateID()
 
 	// check address collision
-	if _, ok := c.Devices[d.Id]; ok {
-		return fmt.Errorf("device address collision on %s", d.Id)
+	if _, ok := c.Devices[d.ID]; ok {
+		return fmt.Errorf("device address collision on %s", d.ID)
 	}
 
 	if err := copyString(&devEntry, "name", &(d.Name), false); err != nil {
 		return err
 	}
-	if err := copyString(&devEntry, "id", &(d.Id), false); err != nil {
+	if err := copyString(&devEntry, "id", &(d.ID), false); err != nil {
 		return err
 	}
 	if err := copyString(&devEntry, "device_type", &(d.DeviceType), false); err != nil {
@@ -568,23 +567,23 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 		return err
 	}
 
-	d.Channels = make(map[string]*ChannelConfig)
+	d.channels = make(map[string]*ChannelConfig)
 
 	// parse channels
 	if channelsEntry, ok := devEntry["channels"]; ok {
 		if channels, valid := channelsEntry.([]map[string]interface{}); valid {
 			if err := d.parseChannels(channels); err != nil {
-				return fmt.Errorf("channel parse error in %s: %s", d.Id, err)
+				return fmt.Errorf("channel parse error in %s: %s", d.ID, err)
 			}
 		} else {
-			return fmt.Errorf("channels list in %s must be array of objects, %T given", d.Id, channelsEntry)
+			return fmt.Errorf("channels list in %s must be array of objects, %T given", d.ID, channelsEntry)
 		}
 	} else {
-		return fmt.Errorf("channels list is not present for %s", d.Id)
+		return fmt.Errorf("channels list is not present for %s", d.ID)
 	}
 
 	// append device to storage
-	c.Devices[d.Id] = d
+	c.Devices[d.ID] = d
 
 	return nil
 }
@@ -593,7 +592,7 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 func (d *DeviceConfig) parseChannels(chans []map[string]interface{}) error {
 	// for each element in input slice - create ChannelConfig structure and append to DeviceConfig
 	if len(chans) == 0 {
-		return fmt.Errorf("channels list is empty for %s", d.Id)
+		return fmt.Errorf("channels list is empty for %s", d.ID)
 	}
 
 	for _, value := range chans {
@@ -609,7 +608,7 @@ func (d *DeviceConfig) parseChannels(chans []map[string]interface{}) error {
 func (d *DeviceConfig) parseChannelEntry(channel map[string]interface{}) error {
 
 	// create channel config struct
-	c := NewEmptyChannelConfig()
+	c := newEmptyChannelConfig()
 
 	// fill channel config
 	//
@@ -639,13 +638,12 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]interface{}) error {
 	if _, ok := channel["scale"]; ok {
 		if !isNumericControlType(c.ControlType) {
 			return fmt.Errorf("scale could be applied only to numeric control type")
-		} else {
-			var scale float64
-			if err := copyFloat64(&channel, "scale", &scale, false); err != nil {
-				return err
-			}
-			c.Conv = Scale(scale)
 		}
+		var scale float64
+		if err := copyFloat64(&channel, "scale", &scale, false); err != nil {
+			return err
+		}
+		c.Conv = scaleConverter(scale)
 	}
 
 	// poll interval is optional
@@ -671,7 +669,7 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]interface{}) error {
 
 	// append channel config to device
 	c.Device = d
-	d.Channels[c.Name] = c
+	d.channels[c.Name] = c
 
 	return nil
 }

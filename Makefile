@@ -25,7 +25,7 @@ clean:
 amd64:
 	$(MAKE) DEB_TARGET_ARCH=amd64
 
-wb-mqtt-snmp: main.go mqtt_snmp/*.go
+wb-mqtt-snmp: main.go mqttsnmp/*.go
 	$(GO_ENV) go build -trimpath -ldflags "-w -X main.version=`git describe --tags --always --dirty`"
 
 install:
