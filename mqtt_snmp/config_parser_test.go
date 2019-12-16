@@ -1,4 +1,4 @@
-package mqttsnmp
+package mqtt_snmp
 
 import (
 	"github.com/alouca/gosnmp"
@@ -9,6 +9,11 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+)
+
+const (
+	// Testing templates directory
+	templatesDirectory = "./test-templates"
 )
 
 type ConfigParserSuite struct {
@@ -45,42 +50,42 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 
 	// check devices map
 	for dkey, dvalue := range a.Devices {
-		var devConfig *DeviceConfig
+		var b_dvalue *DeviceConfig
 		var ok bool
 
-		if devConfig, ok = b.Devices[dkey]; !ok {
+		if b_dvalue, ok = b.Devices[dkey]; !ok {
 			wbgo.Debug.Printf("device %s doesn't exist in another", dkey)
 			return false
 		}
 
-		if len(a.Devices[dkey].channels) != len(b.Devices[dkey].channels) {
+		if len(a.Devices[dkey].Channels) != len(b.Devices[dkey].Channels) {
 			wbgo.Debug.Printf("device %s number of channel mismatch", dkey)
-			wbgo.Debug.Printf("%d vs %d", len(a.Devices[dkey].channels), len(b.Devices[dkey].channels))
+			wbgo.Debug.Printf("%d vs %d", len(a.Devices[dkey].Channels), len(b.Devices[dkey].Channels))
 			return false
 		}
 
 		// check values per-key
-		if dvalue.Name != devConfig.Name ||
-			dvalue.Address != devConfig.Address ||
-			dvalue.DeviceType != devConfig.DeviceType ||
-			dvalue.ID != devConfig.ID ||
-			dvalue.Community != devConfig.Community ||
-			dvalue.SnmpTimeout != devConfig.SnmpTimeout ||
-			dvalue.SnmpVersion != devConfig.SnmpVersion {
+		if dvalue.Name != b_dvalue.Name ||
+			dvalue.Address != b_dvalue.Address ||
+			dvalue.DeviceType != b_dvalue.DeviceType ||
+			dvalue.Id != b_dvalue.Id ||
+			dvalue.Community != b_dvalue.Community ||
+			dvalue.SnmpTimeout != b_dvalue.SnmpTimeout ||
+			dvalue.SnmpVersion != b_dvalue.SnmpVersion {
 			if verbose {
 				wbgo.Debug.Printf("device %s configuration mismatch", dkey)
 				wbgo.Debug.Printf("%+v", dvalue)
 				wbgo.Debug.Print("vs.")
-				wbgo.Debug.Printf("%+v", devConfig)
+				wbgo.Debug.Printf("%+v", b_dvalue)
 			}
 			return false
 		}
 
 		// check channels
-		for ckey, cvalue := range a.Devices[dkey].channels {
-			var chanConfig *ChannelConfig
+		for ckey, cvalue := range a.Devices[dkey].Channels {
+			var b_cvalue *ChannelConfig
 
-			if chanConfig, ok = b.Devices[dkey].channels[ckey]; !ok {
+			if b_cvalue, ok = b.Devices[dkey].Channels[ckey]; !ok {
 				if verbose {
 					wbgo.Debug.Printf("device %s channel %s doesn't exist in another", dkey, ckey)
 				}
@@ -88,39 +93,39 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 			}
 
 			// check values per-key
-			if cvalue.Name != chanConfig.Name ||
-				cvalue.Oid != chanConfig.Oid ||
-				cvalue.ControlType != chanConfig.ControlType ||
-				cvalue.PollInterval != chanConfig.PollInterval ||
-				cvalue.Order != chanConfig.Order {
+			if cvalue.Name != b_cvalue.Name ||
+				cvalue.Oid != b_cvalue.Oid ||
+				cvalue.ControlType != b_cvalue.ControlType ||
+				cvalue.PollInterval != b_cvalue.PollInterval ||
+				cvalue.Order != b_cvalue.Order {
 				if verbose {
 					wbgo.Debug.Printf("device %s channel %s configuration mismatch", dkey, ckey)
 					wbgo.Debug.Printf("%+v", cvalue)
 					wbgo.Debug.Print("vs.")
-					wbgo.Debug.Printf("%+v", chanConfig)
+					wbgo.Debug.Printf("%+v", b_cvalue)
 				}
 				return false
 			}
 
 			// check function pointer
-			if reflect.ValueOf(cvalue.Conv).Pointer() != reflect.ValueOf(chanConfig.Conv).Pointer() {
+			if reflect.ValueOf(cvalue.Conv).Pointer() != reflect.ValueOf(b_cvalue.Conv).Pointer() {
 				if verbose {
 					wbgo.Debug.Printf("device %s channel %s convertion function mismatch", dkey, ckey)
 					wbgo.Debug.Printf("%v", reflect.ValueOf(cvalue.Conv))
 					wbgo.Debug.Print("vs.")
-					wbgo.Debug.Printf("%v", reflect.ValueOf(chanConfig.Conv))
+					wbgo.Debug.Printf("%v", reflect.ValueOf(b_cvalue.Conv))
 				}
 				return false
 			}
 
 			// check function param for Scale
-			if reflect.ValueOf(cvalue.Conv).Pointer() == reflect.ValueOf(scaleConverter(1)).Pointer() {
-				if cvalue.Conv("1") != chanConfig.Conv("1") {
+			if reflect.ValueOf(cvalue.Conv).Pointer() == reflect.ValueOf(Scale(1)).Pointer() {
+				if cvalue.Conv("1") != b_cvalue.Conv("1") {
 					if verbose {
 						wbgo.Debug.Printf("device %s channel %s Scale() function coefficient mismatch", dkey, ckey)
 						wbgo.Debug.Printf("%s", cvalue.Conv("1"))
 						wbgo.Debug.Print("vs.")
-						wbgo.Debug.Printf("%s", chanConfig.Conv("1"))
+						wbgo.Debug.Printf("%s", b_cvalue.Conv("1"))
 					}
 					return false
 				}
@@ -277,22 +282,22 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 
 	expect := DaemonConfig{
 		Debug:      false,
-		NumWorkers: defaultNumWorkers,
+		NumWorkers: DefaultNumWorkers,
 		Devices: map[string]*DeviceConfig{
 			"snmp_127.0.0.1_test": &DeviceConfig{
 				Name:        "SNMP 127.0.0.1_test",
-				ID:          "snmp_127.0.0.1_test",
+				Id:          "snmp_127.0.0.1_test",
 				Address:     "127.0.0.1",
 				DeviceType:  "type2",
 				Community:   "test",
 				SnmpVersion: gosnmp.Version1,
-				SnmpTimeout: defaultSnmpTimeout,
-				channels: map[string]*ChannelConfig{
+				SnmpTimeout: DefaultSnmpTimeout,
+				Channels: map[string]*ChannelConfig{
 					"Temperature": &ChannelConfig{
 						Name:         "Temperature",
 						Oid:          ".1.2.3",
 						ControlType:  "value",
-						Conv:         scaleConverter(0.1),
+						Conv:         Scale(0.1),
 						PollInterval: 1000,
 						Order:        3,
 					},
@@ -300,7 +305,7 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 						Name:         "channel1",
 						Oid:          ".1.2.3.4.4",
 						ControlType:  "value",
-						Conv:         asIs,
+						Conv:         AsIs,
 						PollInterval: 1000,
 						Units:        "U",
 						Order:        1,
@@ -309,7 +314,7 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 						Name:         "channel2",
 						Oid:          ".1.2.3.4.5",
 						ControlType:  "value",
-						Conv:         asIs,
+						Conv:         AsIs,
 						PollInterval: 500,
 						Order:        2,
 					},
@@ -317,18 +322,18 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 			},
 			"snmp_127.0.0.2_test": &DeviceConfig{
 				Name:        "SNMP 127.0.0.2_test",
-				ID:          "snmp_127.0.0.2_test",
+				Id:          "snmp_127.0.0.2_test",
 				Address:     "127.0.0.2",
 				DeviceType:  "type2",
 				Community:   "test",
 				SnmpVersion: gosnmp.Version2c,
-				SnmpTimeout: defaultSnmpTimeout,
-				channels: map[string]*ChannelConfig{
+				SnmpTimeout: DefaultSnmpTimeout,
+				Channels: map[string]*ChannelConfig{
 					"channel2": &ChannelConfig{
 						Name:         "channel2",
 						Oid:          ".1.2.3.4.5",
 						ControlType:  "value",
-						Conv:         asIs,
+						Conv:         AsIs,
 						PollInterval: 1500,
 						Order:        1,
 					},
@@ -373,23 +378,23 @@ func (s *ConfigParserSuite) TestOidPrefix() {
 
 	expect := DaemonConfig{
 		Debug:      false,
-		NumWorkers: defaultNumWorkers,
+		NumWorkers: DefaultNumWorkers,
 		Devices: map[string]*DeviceConfig{
 			"snmp_127.0.0.1": &DeviceConfig{
 				Name:        "SNMP 127.0.0.1",
-				ID:          "snmp_127.0.0.1",
+				Id:          "snmp_127.0.0.1",
 				Address:     "127.0.0.1",
 				DeviceType:  "",
 				Community:   "",
 				OidPrefix:   "SNMPv2-MIB",
 				SnmpVersion: gosnmp.Version2c,
-				SnmpTimeout: defaultSnmpTimeout,
-				channels: map[string]*ChannelConfig{
+				SnmpTimeout: DefaultSnmpTimeout,
+				Channels: map[string]*ChannelConfig{
 					"channel1": &ChannelConfig{
 						Name:         "channel1",
 						Oid:          "SNMPv2-MIB::sysDescr.0",
 						ControlType:  "value",
-						Conv:         asIs,
+						Conv:         AsIs,
 						PollInterval: 1000,
 						Order:        1,
 					},
@@ -397,7 +402,7 @@ func (s *ConfigParserSuite) TestOidPrefix() {
 						Name:         "channel2",
 						Oid:          ".1.2.3.4.5",
 						ControlType:  "value",
-						Conv:         asIs,
+						Conv:         AsIs,
 						PollInterval: 1000,
 						Order:        2,
 					},
@@ -405,7 +410,7 @@ func (s *ConfigParserSuite) TestOidPrefix() {
 						Name:         "channel3",
 						Oid:          "DISMAN-EVENT-MIB::sysUpTimeInstance",
 						ControlType:  "value",
-						Conv:         asIs,
+						Conv:         AsIs,
 						PollInterval: 1000,
 						Order:        3,
 					},
@@ -447,7 +452,7 @@ func (s *ConfigParserSuite) TestNoChannels() {
 
 // Fail on address collision
 func (s *ConfigParserSuite) TestAddressCollision() {
-	testConfig1 := `{
+	testConfig_1 := `{
 		"devices": [
 		{
 			"address": "127.0.0.1",
@@ -460,11 +465,11 @@ func (s *ConfigParserSuite) TestAddressCollision() {
 		]
 	}`
 
-	_, err := NewDaemonConfig(strings.NewReader(testConfig1), ".")
+	_, err := NewDaemonConfig(strings.NewReader(testConfig_1), ".")
 	s.Error(err, "config parser doesn't fail on device address collision")
 
 	// different communities on one address is not an error
-	testConfig2 := `{
+	testConfig_2 := `{
 		"devices": [
 		{
 			"address": "127.0.0.1",
@@ -479,13 +484,13 @@ func (s *ConfigParserSuite) TestAddressCollision() {
 		]
 	}`
 
-	_, err = NewDaemonConfig(strings.NewReader(testConfig2), ".")
+	_, err = NewDaemonConfig(strings.NewReader(testConfig_2), ".")
 	s.NoError(err, "config parser fail on no device address collision")
 }
 
 // Test channel names collision
 func (s *ConfigParserSuite) TestChannelsCollision() {
-	testConfig1 := `{
+	testConfig_1 := `{
 		"devices": [{
 			"address": "127.0.0.1",
 			"community": "foo",
@@ -503,7 +508,7 @@ func (s *ConfigParserSuite) TestChannelsCollision() {
 	}`
 
 	var err error
-	_, err = NewDaemonConfig(strings.NewReader(testConfig1), ".")
+	_, err = NewDaemonConfig(strings.NewReader(testConfig_1), ".")
 	s.Error(err, "config parser doesn't fail on channel names collision")
 }
 

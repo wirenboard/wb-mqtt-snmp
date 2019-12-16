@@ -7,13 +7,13 @@ import (
 	"os"
 	"os/signal"
 
-	m "github.com/contactless/wb-mqtt-snmp/mqttsnmp"
+	m "github.com/contactless/wb-mqtt-snmp/mqtt_snmp"
 	"github.com/contactless/wbgong"
 )
 
 const (
-	driverClientID = "snmp"
-	driverConvID   = "wb-mqtt-snmp"
+	DRIVER_CLIENT_ID = "snmp"
+	DRIVER_CONV_ID   = "wb-mqtt-snmp"
 )
 
 func main() {
@@ -55,9 +55,9 @@ func main() {
 
 	// wbgo.Debug.Printf("Config structure: %#v\n", *(cfg.Devices["snmp_test.net-snmp.org"]))
 
-	driverMqttClient := wbgong.NewPahoMQTTClient(*broker, driverClientID)
+	driverMqttClient := wbgong.NewPahoMQTTClient(*broker, DRIVER_CLIENT_ID)
 	driverArgs := wbgong.NewDriverArgs().
-		SetId(driverConvID).
+		SetId(DRIVER_CONV_ID).
 		SetMqtt(driverMqttClient).
 		SetUseStorage(false)
 	driver, err := wbgong.NewDriverBase(driverArgs)
@@ -69,6 +69,9 @@ func main() {
 		wbgong.Error.Fatalf("error starting the driver: %s", err)
 	}
 	driver.WaitForReady()
+	wbgong.Info.Println("driver loop is started")
+	// wbgong.Info.Println("wait for driver to become ready")
+	// driver.WaitForReady()
 	wbgong.Info.Println("driver is ready")
 
 	// create driver object and start daemon

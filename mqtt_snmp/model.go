@@ -1,4 +1,4 @@
-package mqttsnmp
+package mqtt_snmp
 
 import (
 	"fmt"
@@ -12,28 +12,29 @@ import (
 
 const (
 	// Size of channels buffer
-	chanBufferSize = 128
+	CHAN_BUFFER_SIZE = 128
 )
 
-// snmpDevice is SNMP device object
-type snmpDevice struct {
+// SNMP device object
+type SnmpDevice struct {
+	// wbgo.DeviceBase
 	devName  string
 	devTitle string
 
 	driver wbgong.DeviceDriver
 
 	// device configuration right from config tree
-	config *DeviceConfig
+	Config *DeviceConfig
 
 	// Device cached values
-	cache map[*ChannelConfig]interface{}
+	Cache map[*ChannelConfig]interface{}
 
 	// SNMP connection
-	snmp snmpInterface
+	snmp SnmpInterface
 }
 
-// convertSnmpValue tries to convert variable value into string
-func convertSnmpValue(v gosnmp.SnmpPDU) (data interface{}, valid bool) {
+// ConvertSnmpValue tries to convert variable value into string
+func ConvertSnmpValue(v gosnmp.SnmpPDU) (data interface{}, valid bool) {
 	valid = false
 
 	switch v.Type {
@@ -91,44 +92,51 @@ func convertSnmpValue(v gosnmp.SnmpPDU) (data interface{}, valid bool) {
 }
 
 // Create new SNMP device instance from config tree
-func newSnmpDevice(factory snmpFactory, config *DeviceConfig, debug bool, driver wbgong.DeviceDriver) (device *snmpDevice, err error) {
+func newSnmpDevice(snmpFactory SnmpFactory, config *DeviceConfig, debug bool, driver wbgong.DeviceDriver) (device *SnmpDevice, err error) {
 	err = nil
 
-	snmp, err := factory(config.Address, config.Community, config.SnmpVersion, int64(config.SnmpTimeout), debug)
+	snmp, err := snmpFactory(config.Address, config.Community, config.SnmpVersion, int64(config.SnmpTimeout), debug)
 	if err != nil {
 		return
 	}
 
-	device = &snmpDevice{
-		devName:  config.ID,
+	device = &SnmpDevice{
+		devName:  config.Id,
 		devTitle: config.Name,
 		snmp:     snmp,
-		config:   config,
-		cache:    make(map[*ChannelConfig]interface{}),
+		Config:   config,
+		Cache:    make(map[*ChannelConfig]interface{}),
 		driver:   driver,
 	}
 
 	return
 }
 
-// SnmpModel is SNMP device model
+// TODO: receive values from MQTT and send it to SNMP?
+func (d *SnmpDevice) AcceptValue(name, value string)        {}
+func (d *SnmpDevice) AcceptOnValue(name, value string) bool { return false }
+func (d *SnmpDevice) IsVirtual() bool                       { return false }
+
+// SNMP device model
 type SnmpModel struct {
+	// wbgo.ModelBase
+
 	driver wbgong.DeviceDriver
 	config *DaemonConfig
 
 	// devices list
-	devices []*snmpDevice
+	devices []*SnmpDevice
 
 	// devices associated with their channels
-	deviceChannelMap map[*ChannelConfig]*snmpDevice
+	DeviceChannelMap map[*ChannelConfig]*SnmpDevice
 
 	// Poll schedule table
-	pollTable *pollTable
+	pollTable *PollTable
 
 	// Channels to exchange data between workers and replier
-	queryChannel         chan pollQuery
-	resultChannel        chan pollResult
-	errorChannel         chan pollError
+	queryChannel         chan PollQuery
+	resultChannel        chan PollResult
+	errorChannel         chan PollError
 	quitChannels         []chan struct{}
 	pollDoneChannel      chan struct{}
 	pubDoneChannel       chan struct{}
@@ -138,8 +146,8 @@ type SnmpModel struct {
 	pollTimer wbgong.RTimer
 }
 
-// newSnmpModel constructs new SnmpModel
-func newSnmpModel(factory snmpFactory, config *DaemonConfig, start time.Time, driver wbgong.DeviceDriver) (model *SnmpModel, err error) {
+// SNMP model constructor
+func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig, start time.Time, driver wbgong.DeviceDriver) (model *SnmpModel, err error) {
 	err = nil
 
 	model = &SnmpModel{
@@ -148,19 +156,19 @@ func newSnmpModel(factory snmpFactory, config *DaemonConfig, start time.Time, dr
 	}
 
 	// init all devices from configuration
-	model.devices = make([]*snmpDevice, len(model.config.Devices))
-	model.deviceChannelMap = make(map[*ChannelConfig]*snmpDevice)
+	model.devices = make([]*SnmpDevice, len(model.config.Devices))
+	model.DeviceChannelMap = make(map[*ChannelConfig]*SnmpDevice)
 	i := 0
 	for dev := range model.config.Devices {
-		if model.devices[i], err = newSnmpDevice(factory, model.config.Devices[dev], config.Debug, driver); err != nil {
+		if model.devices[i], err = newSnmpDevice(snmpFactory, model.config.Devices[dev], config.Debug, driver); err != nil {
 			wbgong.Error.Fatalf("can't create SNMP device: %s", err)
 		}
 
-		for ch := range model.config.Devices[dev].channels {
-			model.deviceChannelMap[model.config.Devices[dev].channels[ch]] = model.devices[i]
+		for ch := range model.config.Devices[dev].Channels {
+			model.DeviceChannelMap[model.config.Devices[dev].Channels[ch]] = model.devices[i]
 		}
 
-		i++
+		i += 1
 	}
 
 	if err != nil {
@@ -168,7 +176,7 @@ func newSnmpModel(factory snmpFactory, config *DaemonConfig, start time.Time, dr
 	}
 
 	// fill poll table
-	model.pollTable = newPollTable()
+	model.pollTable = NewPollTable()
 
 	// form queries from config and given start time
 	model.formQueries(start)
@@ -179,19 +187,19 @@ func newSnmpModel(factory snmpFactory, config *DaemonConfig, start time.Time, dr
 // Form queries from config and fill poll table
 func (m *SnmpModel) formQueries(deadline time.Time) {
 	// create map from intervals to queries
-	queries := make(map[int][]pollQuery)
+	queries := make(map[int][]PollQuery)
 
 	// go through config file and fill queries map
 	for _, dev := range m.config.Devices {
-		for _, ch := range dev.channels {
+		for _, ch := range dev.Channels {
 			if _, ok := queries[ch.PollInterval]; !ok {
-				queries[ch.PollInterval] = make([]pollQuery, 0, 5)
+				queries[ch.PollInterval] = make([]PollQuery, 0, 5)
 			}
 
 			// form query
-			q := pollQuery{
-				channel:  ch,
-				deadline: deadline,
+			q := PollQuery{
+				Channel:  ch,
+				Deadline: deadline,
 			}
 
 			queries[ch.PollInterval] = append(queries[ch.PollInterval], q)
@@ -200,34 +208,35 @@ func (m *SnmpModel) formQueries(deadline time.Time) {
 
 	// push that queues into poll table
 	for interval, lst := range queries {
-		m.pollTable.addQueue(newPollQueue(lst), interval)
+		m.pollTable.AddQueue(NewPollQueue(lst), interval)
 	}
 }
 
-// pollWorker receives poll query, perform SNMP transaction and
+// Reader worker
+// Receives poll query, perform SNMP transaction and
 // send result (or error) to publisher worker
-func (m *SnmpModel) pollWorker(id int, req <-chan pollQuery, res chan pollResult, err chan pollError, quit <-chan struct{}, done chan struct{}) {
+func (m *SnmpModel) PollWorker(id int, req <-chan PollQuery, res chan PollResult, err chan PollError, quit <-chan struct{}, done chan struct{}) {
 LPollWorker:
 	for {
 		select {
 		case r := <-req:
-			wbgong.Debug.Printf("[poller %d] Receive request %v\n", id, r.channel.Oid)
+			wbgong.Debug.Printf("[poller %d] Receive request %v\n", id, r.Channel.Oid)
 			// process query
-			dev := m.deviceChannelMap[r.channel]
-			packet, e := dev.snmp.Get(r.channel.Oid)
+			dev := m.DeviceChannelMap[r.Channel]
+			packet, e := dev.snmp.Get(r.Channel.Oid)
 			if e != nil {
 				// TODO: make it Error and suppress on testing
-				wbgong.Debug.Printf("failed to poll %s:%s: %s", dev.devName, r.channel.Name, e)
-				err <- pollError{channel: r.channel}
+				wbgong.Debug.Printf("failed to poll %s:%s: %s", dev.devName, r.Channel.Name, e)
+				err <- PollError{Channel: r.Channel}
 			} else {
 				for i := range packet.Variables {
-					data, valid := convertSnmpValue(packet.Variables[i])
+					data, valid := ConvertSnmpValue(packet.Variables[i])
 					if !valid {
-						wbgong.Warn.Printf("failed to poll %s:%s: instance can't be converted to string", dev.devName, r.channel.Name)
-						err <- pollError{channel: r.channel}
+						wbgong.Warn.Printf("failed to poll %s:%s: instance can't be converted to string", dev.devName, r.Channel.Name)
+						err <- PollError{Channel: r.Channel}
 					} else {
 						wbgong.Debug.Printf("[poller %d] Send result for request %v: %v", id, r, data)
-						res <- pollResult{channel: r.channel, data: data}
+						res <- PollResult{Channel: r.Channel, Data: data}
 					}
 				}
 			}
@@ -239,8 +248,9 @@ LPollWorker:
 	}
 }
 
-// publisherWorker receives new values from Reader workers
-func (m *SnmpModel) publisherWorker(data <-chan pollResult, err <-chan pollError, quit chan struct{}, done chan struct{}) {
+// Publisher worker
+// Receives new values from Reader workers
+func (m *SnmpModel) PublisherWorker(data <-chan PollResult, err <-chan PollError, quit chan struct{}, done chan struct{}) {
 LPublisherWorker:
 	for {
 		select {
@@ -249,35 +259,35 @@ LPublisherWorker:
 
 			// process received data
 			// get device of given channel
-			dev := m.deviceChannelMap[d.channel]
+			dev := m.DeviceChannelMap[d.Channel]
 
 			if dev == nil {
-				panic(fmt.Sprintf("device is not found for channel: %+v", d.channel))
+				panic(fmt.Sprintf("device is not found for channel: %+v", d.Channel))
 			}
 
 			// try to get value from cache
-			val, ok := dev.cache[d.channel]
+			val, ok := dev.Cache[d.Channel]
 			if !ok {
 				// create value in cache and create new control in MQTT
-				dev.cache[d.channel] = d.data
+				dev.Cache[d.Channel] = d.Data
 				// TODO: read-only, max value and retain flags
-				controlType := d.channel.ControlType
-				if d.channel.Units != "" {
-					controlType = controlType + ":" + d.channel.Units
+				controlType := d.Channel.ControlType
+				if d.Channel.Units != "" {
+					controlType = controlType + ":" + d.Channel.Units
 				}
-				wbgong.Debug.Printf("[publisher] Create new control for channel %#v\n", *(d.channel))
+				wbgong.Debug.Printf("[publisher] Create new control for channel %#v\n", *(d.Channel))
 
 				err := dev.driver.Access(func(tx wbgong.DriverTx) (err error) {
 					currentDevice := tx.GetDevice(dev.devName)
 					// create control
 					args := wbgong.NewControlArgs().
-						SetId(d.channel.Name).
+						SetId(d.Channel.Name).
 						SetDevice(currentDevice).
-						SetType(d.channel.ControlType).
-						SetOrder(d.channel.Order).
-						SetValue(d.data).
+						SetType(d.Channel.ControlType).
+						SetOrder(d.Channel.Order).
+						SetValue(d.Data).
 						SetReadonly(true).
-						SetValue(d.data)
+						SetValue(d.Data)
 					_, err = currentDevice.(wbgong.LocalDevice).CreateControl(args)()
 					return
 				})
@@ -287,13 +297,13 @@ LPublisherWorker:
 				}
 
 				// dev.Observer.OnNewControl(dev, wbgo.Control{Name: d.Channel.Name, Type: controlType, Value: d.Data, Order: d.Channel.Order})
-			} else if val != d.data {
-				dev.cache[d.channel] = d.data
+			} else if val != d.Data {
+				dev.Cache[d.Channel] = d.Data
 				// send new value only if it has been changed
 				err := dev.driver.Access(func(tx wbgong.DriverTx) (err error) {
 					wbDev := tx.ToDeviceDriverTx().GetDevice(dev.devName)
-					wbControl := wbDev.GetControl(d.channel.Name)
-					err = wbControl.UpdateValue(d.data)()
+					wbControl := wbDev.GetControl(d.Channel.Name)
+					err = wbControl.UpdateValue(d.Data)()
 					return
 					// return tx.GetDevice(dev.devName).GetControl(d.Channel.Name).SetValue(d.Data)()
 				})
@@ -315,8 +325,8 @@ LPublisherWorker:
 	}
 }
 
-// pollTimerWorker is a timer triggers pollTable to send queries
-func (m *SnmpModel) pollTimerWorker(quit <-chan struct{}, done chan struct{}) {
+// Timer triggers pollTable to send queries
+func (m *SnmpModel) PollTimerWorker(quit <-chan struct{}, done chan struct{}) {
 	var t time.Time
 
 	for {
@@ -330,7 +340,7 @@ func (m *SnmpModel) pollTimerWorker(quit <-chan struct{}, done chan struct{}) {
 		wbgong.Debug.Printf("[POLLTIMEREVENT] Run at %v\n", t)
 
 		// start poll and wait until it's done
-		numQueries := m.pollTable.poll(m.queryChannel, t)
+		numQueries := m.pollTable.Poll(m.queryChannel, t)
 		for i := 0; i < 2*numQueries; i++ {
 			select {
 			case <-m.pollDoneChannel:
@@ -339,7 +349,7 @@ func (m *SnmpModel) pollTimerWorker(quit <-chan struct{}, done chan struct{}) {
 		}
 
 		// setup timer to next poll time
-		nextPoll, err := m.pollTable.nextPollTime()
+		nextPoll, err := m.pollTable.NextPollTime()
 		if err != nil {
 			panic("Error getting next poll time from table")
 		}
@@ -347,21 +357,21 @@ func (m *SnmpModel) pollTimerWorker(quit <-chan struct{}, done chan struct{}) {
 	}
 }
 
-// setPollTimer setup poll timer and timer channel
+// Setup poll timer and timer channel
 // Generally this is for testing
-func (m *SnmpModel) setPollTimer(t wbgong.RTimer) {
+func (m *SnmpModel) SetPollTimer(t wbgong.RTimer) {
 	m.pollTimer = t
 }
 
 // Start model
 func (m *SnmpModel) Start() error {
 	// create all channels
-	m.queryChannel = make(chan pollQuery, chanBufferSize)
-	m.resultChannel = make(chan pollResult, chanBufferSize)
-	m.errorChannel = make(chan pollError, chanBufferSize)
+	m.queryChannel = make(chan PollQuery, CHAN_BUFFER_SIZE)
+	m.resultChannel = make(chan PollResult, CHAN_BUFFER_SIZE)
+	m.errorChannel = make(chan PollError, CHAN_BUFFER_SIZE)
 	m.quitChannels = make([]chan struct{}, m.config.NumWorkers+2) // +2 for publisher and poll timer
-	m.pollDoneChannel = make(chan struct{}, chanBufferSize)
-	m.pubDoneChannel = make(chan struct{}, chanBufferSize)
+	m.pollDoneChannel = make(chan struct{}, CHAN_BUFFER_SIZE)
+	m.pubDoneChannel = make(chan struct{}, CHAN_BUFFER_SIZE)
 	m.pollTimerDoneChannel = make(chan struct{})
 
 	for i := range m.quitChannels {
@@ -380,30 +390,34 @@ func (m *SnmpModel) Start() error {
 		if err != nil {
 			return err
 		}
+		// m.Observer.OnNewDevice(m.devices[i])
 	}
 
 	// start poll timer
 	// configure local timer if it was not configured yet
 	if m.pollTimer == nil {
-		nextPoll, err := m.pollTable.nextPollTime()
+		nextPoll, err := m.pollTable.NextPollTime()
 		if err != nil {
 			wbgong.Error.Fatalf("unable to get next poll time: %s", err)
 			m.Stop()
 			return err
 		}
-		m.setPollTimer(wbgong.NewRealRTimer(nextPoll.Sub(time.Now())))
+		m.SetPollTimer(wbgong.NewRealRTimer(nextPoll.Sub(time.Now())))
 	}
 
 	// start workers and publisher
 	for i := 0; i < m.config.NumWorkers; i++ {
-		go m.pollWorker(i, m.queryChannel, m.resultChannel, m.errorChannel, m.quitChannels[i], m.pollDoneChannel)
+		go m.PollWorker(i, m.queryChannel, m.resultChannel, m.errorChannel, m.quitChannels[i], m.pollDoneChannel)
 	}
-	go m.publisherWorker(m.resultChannel, m.errorChannel, m.quitChannels[m.config.NumWorkers], m.pubDoneChannel)
+	go m.PublisherWorker(m.resultChannel, m.errorChannel, m.quitChannels[m.config.NumWorkers], m.pubDoneChannel)
 
-	go m.pollTimerWorker(m.quitChannels[m.config.NumWorkers+1], m.pollTimerDoneChannel)
+	go m.PollTimerWorker(m.quitChannels[m.config.NumWorkers+1], m.pollTimerDoneChannel)
 
 	return nil
 }
+
+// Built-in poll function - leave this empty, we have our own autopoll already
+func (m *SnmpModel) Poll() {}
 
 // Stop model - send signal to terminate all workers
 func (m *SnmpModel) Stop() {
@@ -427,7 +441,7 @@ func (m *SnmpModel) Stop() {
 	pollDone := 0
 	pubDone := 0
 	pollTimerDone := 0
-	for range m.quitChannels {
+	for _ = range m.quitChannels {
 		select {
 		case <-m.pollDoneChannel:
 			pollDone++

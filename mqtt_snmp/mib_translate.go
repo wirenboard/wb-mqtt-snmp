@@ -1,4 +1,4 @@
-package mqttsnmp
+package mqtt_snmp
 
 // OID translate module
 // Using `snmptranslate` utility from NetSNMP
@@ -10,17 +10,17 @@ import (
 	"strings"
 )
 
-// TranslateOids translates mixed OIDs/names to OIDs
+// Translates mixed OIDs/names to OIDs
 // using local `snmptranslate` utility and, so,
 // local installed MIBs
 func TranslateOids(oids []string) (out map[string]string, err error) {
 	err = nil
-	var rawOut []byte
+	var raw_out []byte
 
 	// call snmptranslate
 	log.Printf("command to run: snmptranslate %#v -On", oids)
 	cmd := exec.Command("snmptranslate", append(oids, "-On")...)
-	rawOut, err = cmd.Output()
+	raw_out, err = cmd.Output()
 
 	if err != nil {
 		eout, _ := cmd.CombinedOutput()
@@ -30,7 +30,7 @@ func TranslateOids(oids []string) (out map[string]string, err error) {
 
 	// parse output of snmptranslate
 	out = make(map[string]string)
-	split := strings.Split(string(rawOut), "\n\n")
+	split := strings.Split(string(raw_out), "\n\n")
 
 	for i, value := range oids {
 		out[value] = strings.Trim(split[i], " \n")
@@ -39,38 +39,38 @@ func TranslateOids(oids []string) (out map[string]string, err error) {
 	return
 }
 
-// TranslateOidsInDaemonConfig translates all OIDs in given configuration
+// Translate all OIDs in given configuration
 func TranslateOidsInDaemonConfig(config *DaemonConfig) error {
 	// collect all unique OIDs into list
-	oidsSet := make(map[string]bool)
+	oids_set := make(map[string]bool)
 
 	for _, device := range config.Devices {
-		for _, channel := range device.channels {
-			oidsSet[channel.Oid] = true
+		for _, channel := range device.Channels {
+			oids_set[channel.Oid] = true
 		}
 	}
 
-	oidsList := make([]string, len(oidsSet), len(oidsSet)+1) // +1 for TranslateOids (for not to waste time on reallocations)
+	oids_list := make([]string, len(oids_set), len(oids_set)+1) // +1 for TranslateOids (for not to waste time on reallocations)
 
 	i := 0
-	for key := range oidsSet {
-		oidsList[i] = key
-		i++
+	for key, _ := range oids_set {
+		oids_list[i] = key
+		i += 1
 	}
 
 	// parse list
-	tmap, err := TranslateOids(oidsList)
+	tmap, err := TranslateOids(oids_list)
 	if err != nil {
 		return err
 	}
 
 	// translate OIDs in config
-	for devKey, device := range config.Devices {
-		for chKey := range device.channels {
+	for dev_key, device := range config.Devices {
+		for ch_key, _ := range device.Channels {
 			// TODO: it's a Go bullshit' workaround
-			tmp := config.Devices[devKey].channels[chKey]
+			tmp := config.Devices[dev_key].Channels[ch_key]
 			tmp.Oid = tmap[tmp.Oid]
-			config.Devices[devKey].channels[chKey] = tmp
+			config.Devices[dev_key].Channels[ch_key] = tmp
 		}
 	}
 
