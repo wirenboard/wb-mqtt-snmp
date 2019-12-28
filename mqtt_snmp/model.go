@@ -295,8 +295,6 @@ LPublisherWorker:
 				if err != nil {
 					wbgong.Error.Printf("[publisher] Error in creating control: %s\n", err)
 				}
-
-				// dev.Observer.OnNewControl(dev, wbgo.Control{Name: d.Channel.Name, Type: controlType, Value: d.Data, Order: d.Channel.Order})
 			} else if val != d.Data {
 				dev.Cache[d.Channel] = d.Data
 				// send new value only if it has been changed
@@ -305,13 +303,11 @@ LPublisherWorker:
 					wbControl := wbDev.GetControl(d.Channel.Name)
 					err = wbControl.UpdateValue(d.Data)()
 					return
-					// return tx.GetDevice(dev.devName).GetControl(d.Channel.Name).SetValue(d.Data)()
 				})
 
 				if err != nil {
 					wbgong.Error.Printf("[publisher] Error in setting control value: %s\n", err)
 				}
-				// dev.Observer.OnValue(dev, d.Channel.Name, d.Data)
 			}
 			done <- struct{}{}
 		case e := <-err:
@@ -390,7 +386,6 @@ func (m *SnmpModel) Start() error {
 		if err != nil {
 			return err
 		}
-		// m.Observer.OnNewDevice(m.devices[i])
 	}
 
 	// start poll timer
