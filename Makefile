@@ -15,6 +15,8 @@ ifeq ($(DEB_TARGET_ARCH),i386)
 GO_ENV := GOARCH=386 CC=i586-linux-gnu-gcc
 endif
 
+GO_ENV := GO111MODULE=on $(GO_ENV)
+
 all: wb-mqtt-snmp
 
 clean:
@@ -24,8 +26,7 @@ amd64:
 	$(MAKE) DEB_TARGET_ARCH=amd64
 
 wb-mqtt-snmp: main.go mqtt_snmp/*.go
-	$(GO_ENV) glide install
-	$(GO_ENV) go build
+	$(GO_ENV) go build -trimpath -ldflags "-w -X main.version=`git describe --tags --always --dirty`"
 
 install:
 	mkdir -p $(DESTDIR)/usr/share/wb-mqtt-confed/schemas/
@@ -37,11 +38,12 @@ install:
 	install -m 0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf.sample
 	install -m 0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf
 	install -m 0644 wb-mqtt-snmp.schema.json $(DESTDIR)/usr/share/wb-mqtt-confed/schemas/wb-mqtt-snmp.schema.json
+	install -m 0644 $(DEB_TARGET_ARCH).wbgo.so $(DESTDIR)/usr/share/wb-mqtt-snmp/wbgo.so
 
 	cp -rv ./templates $(DESTDIR)/usr/share/wb-mqtt-snmp/templates
 
-test:
-	cd mqtt_snmp && CC= go test -cover
+# test:
+# 	cd mqttsnmp && CC= go test -cover
 
 deb: prepare
-	CC=arm-linux-gnueabi-gcc dpkg-buildpackage -b -aarmel -us -uc
+	$(GO_ENV) dpkg-buildpackage -b -a$(DEB_TARGET_ARCH) -us -uc

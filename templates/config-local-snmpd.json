@@ -7,31 +7,31 @@
     {
         "name": "System name",
         "oid": "sysName.0",
-        "type": "text",
+        "control_type": "text",
         "poll_interval": 1000
     },
     {
         "name": "Services",
         "oid": "sysServices.0",
-        "type": "value",
+        "control_type": "value",
         "poll_interval": 2000
     },
     {
         "name": "Processes",
         "oid": "HOST-RESOURCES-MIB::hrSystemProcesses.0",
-        "type": "value",
+        "control_type": "value",
         "poll_interval": 1000
     },
     {
         "name": "Users",
         "oid": "HOST-RESOURCES-MIB::hrSystemNumUsers.0",
-        "type": "value",
+        "control_type": "value",
         "poll_interval": 1000
     },
     {
         "name": "Uptime",
         "oid": "HOST-RESOURCES-MIB::hrSystemUptime.0",
-        "type": "text",
+        "control_type": "text",
         "poll_interval": 1000
     }
     ]

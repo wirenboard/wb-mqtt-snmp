@@ -20,7 +20,7 @@ type PollQuery struct {
 // Data is processed by Conv function by PollWorker
 type PollResult struct {
 	Channel *ChannelConfig
-	Data    string
+	Data    interface{}
 }
 
 type PollError struct {

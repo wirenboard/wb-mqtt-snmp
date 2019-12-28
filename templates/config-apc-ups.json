@@ -7,81 +7,81 @@
         {
             "name": "Internal temperature",
             "oid": "upsHighPrecBatteryTemperature.0",
-            "type": "temperature",
+            "control_type": "temperature",
             "scale": 0.1
         },
         {
             "name": "Runtime Remaining",
             "oid": "upsAdvBatteryRunTimeRemaining.0",
-            "type": "value"
+            "control_type": "value"
         },
         
         {
             "name": "Input Voltage L1",
             "oid": "upsPhaseInputVoltage.1.1.1",
-            "type": "voltage"
+            "control_type": "voltage"
         },
         {
             "name": "Input Voltage L2",
             "oid": "upsPhaseInputVoltage.1.1.2",
-            "type": "voltage"
+            "control_type": "voltage"
         },
         {
             "name": "Input Voltage L3",
             "oid": "upsPhaseInputVoltage.1.1.3",
-            "type": "voltage"
+            "control_type": "voltage"
         },
 
         {
             "name": "Bypass Input Voltage L1",
             "oid": "upsPhaseInputVoltage.2.1.1",
-            "type": "voltage"
+            "control_type": "voltage"
         },
         {
             "name": "Bypass Input Voltage L2",
             "oid": "upsPhaseInputVoltage.2.1.2",
-            "type": "voltage"
+            "control_type": "voltage"
         },
         {
             "name": "Bypass Input Voltage L3",
             "oid": "upsPhaseInputVoltage.2.1.3",
-            "type": "voltage"
+            "control_type": "voltage"
         },
 
         {
             "name": "Output Voltage L1",
             "oid": "upsPhaseOutputVoltage.1.1.1",
-            "type": "voltage"
+            "control_type": "voltage"
         },
         {
             "name": "Output Voltage L2",
             "oid": "upsPhaseOutputVoltage.1.1.2",
-            "type": "voltage"
+            "control_type": "voltage"
         },
         {
             "name": "Output Voltage L3",
             "oid": "upsPhaseOutputVoltage.1.1.3",
-            "type": "voltage"
+            "control_type": "voltage"
         },
 
         {
             "name": "Current L1",
             "oid": "upsPhaseInputCurrent.1.1.1",
-            "type": "value",
+            "control_type": "value",
             "units": "Amps",
             "scale": 0.1
         },
         {
             "name": "Current L2",
             "oid": "upsPhaseInputCurrent.1.1.2",
-            "type": "value",
+            "control_type": "value",
             "units": "Amps",
             "scale": 0.1
         },
         {
             "name": "Current L3",
             "oid": "upsPhaseInputCurrent.1.1.3",
-            "type": "value",
+            "control_type": "value",
             "units": "Amps",
             "scale": 0.1
         },
@@ -89,7 +89,7 @@
         {
             "name": "Input Frequency",
             "oid": "upsHighPrecInputFrequency.0",
-            "type": "value",
+            "control_type": "value",
             "units": "Hz",
             "scale": 0.1
         },
@@ -97,21 +97,21 @@
         {
             "name": "Output Load L1",
             "oid": "upsPhaseOutputLoad.1.1.1",
-            "type": "value",
+            "control_type": "value",
             "units": "kVA",
             "scale": 0.001
         },
         {
             "name": "Output Load L2",
             "oid": "upsPhaseOutputLoad.1.1.2",
-            "type": "value",
+            "control_type": "value",
             "units": "kVA",
             "scale": 0.001
         },
         {
             "name": "Output Load L3",
             "oid": "upsPhaseOutputLoad.1.1.3",
-            "type": "value",
+            "control_type": "value",
             "units": "kVA",
             "scale": 0.001
         },
@@ -119,59 +119,59 @@
         {
             "name": "Output Percent Load L1",
             "oid": "upsPhaseOutputPercentLoad.1.1.1",
-            "type": "value",
+            "control_type": "value",
             "units": "%kVA"
         },
         {
             "name": "Output Percent Load L2",
             "oid": "upsPhaseOutputPercentLoad.1.1.2",
-            "type": "value",
+            "control_type": "value",
             "units": "%kVA"
         },
         {
             "name": "Output Percent Load L3",
             "oid": "upsPhaseOutputPercentLoad.1.1.3",
-            "type": "value",
+            "control_type": "value",
             "units": "%kVA"
         },
 
         {
             "name": "Output Percent Power L1",
             "oid": "upsPhaseOutputPercentPower.1.1.1",
-            "type": "value",
+            "control_type": "value",
             "units": "%Watts"
         },
         {
             "name": "Output Percent Power L2",
             "oid": "upsPhaseOutputPercentPower.1.1.2",
-            "type": "value",
+            "control_type": "value",
             "units": "%Watts"
         },
         {
             "name": "Output Percent Power L3",
             "oid": "upsPhaseOutputPercentPower.1.1.3",
-            "type": "value",
+            "control_type": "value",
             "units": "%Watts"
         },
 
         {
             "name": "Output Current L1",
             "oid": "upsPhaseOutputCurrent.1.1.1",
-            "type": "value",
+            "control_type": "value",
             "units": "Amps",
             "scale": 0.1
         },
         {
             "name": "Output Current L2",
             "oid": "upsPhaseOutputCurrent.1.1.2",
-            "type": "value",
+            "control_type": "value",
             "units": "Amps",
             "scale": 0.1
         },
         {
             "name": "Output Current L3",
             "oid": "upsPhaseOutputCurrent.1.1.3",
-            "type": "value",
+            "control_type": "value",
             "units": "Amps",
             "scale": 0.1
         },
@@ -179,7 +179,7 @@
         {
             "name": "Output Frequency",
             "oid": "upsPhaseOutputFrequency.1",
-            "type": "value",
+            "control_type": "value",
             "units": "Hz",
             "scale": 0.1
         },
@@ -187,26 +187,26 @@
         {
             "name": "Battery Capacity",
             "oid": "upsHighPrecBatteryCapacity.0",
-            "type": "value",
+            "control_type": "value",
             "units": "%",
             "scale": 0.1
         },
         {
             "name": "Nominal Battery Voltage",
             "oid": "upsHighPrecBatteryNominalVoltage.0",
-            "type": "voltage",
+            "control_type": "voltage",
             "scale": 0.1
         },
         {
             "name": "Actual Battery Bus Voltage",
             "oid": "upsHighPrecBatteryActualVoltage.0",
-            "type": "voltage",
+            "control_type": "voltage",
             "scale": 0.1
         },
         {
             "name": "Battery Current",
             "oid": "upsHighPrecBatteryCurrent.0",
-            "type": "value",
+            "control_type": "value",
             "units": "Amps",
             "scale": 0.1
         },
@@ -214,42 +214,42 @@
         {
             "name": "Number of Batteries",
             "oid": "upsAdvBatteryNumOfBattPacks.0",
-            "type": "value"
+            "control_type": "value"
         },
         {
             "name": "Number of Bad Batteries",
             "oid": "upsAdvBatteryNumOfBadBattPacks.0",
-            "type": "value"
+            "control_type": "value"
         },
 
         {
             "name": "Output Status",
             "oid": "upsBasicOutputStatus.0",
-            "type": "text"
+            "control_type": "text"
         },
 
         {
             "name": "Firmware Revision",
             "oid": "upsDiagIMFirmwareRev.1",
-            "type": "text",
+            "control_type": "text",
             "poll_interval": 10000
         },
         {
             "name": "Serial Number",
             "oid": "upsDiagIMSerialNum.1",
-            "type": "text",
+            "control_type": "text",
             "poll_interval": 10000
         },
         {
             "name": "Manufacture Date",
             "oid": "upsDiagIMManufactureDate.1",
-            "type": "text",
+            "control_type": "text",
             "poll_interval": 10000
         },
         {
             "name": "Hardware Revision",
             "oid": "upsDiagIMHardwareRev.1",
-            "type": "text",
+            "control_type": "text",
             "poll_interval": 10000
         }
     ]
