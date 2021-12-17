@@ -1,7 +1,7 @@
 package mqtt_snmp
 
 import (
-	"github.com/alouca/gosnmp"
+	"github.com/wirenboard/gosnmp"
 	"github.com/contactless/wbgo"
 	"github.com/contactless/wbgo/testutils"
 	"io/ioutil"

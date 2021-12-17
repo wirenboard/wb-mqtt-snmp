@@ -3,7 +3,7 @@ package mqtt_snmp
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/alouca/gosnmp"
+	"github.com/wirenboard/gosnmp"
 	"github.com/contactless/wbgo"
 	"io"
 	"io/ioutil"

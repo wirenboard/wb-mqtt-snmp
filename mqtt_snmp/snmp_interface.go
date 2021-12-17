@@ -2,7 +2,7 @@ package mqtt_snmp
 
 import (
 	l "github.com/alouca/gologger"
-	"github.com/alouca/gosnmp"
+	"github.com/wirenboard/gosnmp"
 )
 
 // Minimal SNMP interface

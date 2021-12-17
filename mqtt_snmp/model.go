@@ -2,7 +2,7 @@ package mqtt_snmp
 
 import (
 	"fmt"
-	"github.com/alouca/gosnmp"
+	"github.com/wirenboard/gosnmp"
 	"github.com/contactless/wbgo"
 	"net"
 	"time"
