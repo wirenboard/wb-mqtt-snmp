@@ -1,10 +1,8 @@
-hash: c7111f32248faed645c1ed9dff74a3dddb0b684f1865714d03c0c5b3646afeb2
-updated: 2018-09-13T08:03:36.357762019Z
+hash: 497953f06cc2813468b82af422e10f7589625a3f873ad12fd72911b30a8fcb02
+updated: 2021-12-21T05:44:08.465984729Z
 imports:
 - name: github.com/alouca/gologger
   version: 7d4b7291de9c9df1b3fe6a3d784b3675b6c0c996
-- name: github.com/alouca/gosnmp
-  version: 9b459058490f02bf70b2075447ee9465b00b98c3
 - name: github.com/contactless/org.eclipse.paho.mqtt.golang
   version: bc107ec72972f0e7048787415ea061578b5c3f33
   subpackages:
@@ -18,25 +16,30 @@ imports:
   subpackages:
   - spew
 - name: github.com/pmezard/go-difflib
-  version: 792786c7400a136282c1664665ae0a8db921c6c2
+  version: 5d4384ee4fb2527b0a1256a821ebfc92f91efefc
   subpackages:
   - difflib
 - name: github.com/stretchr/objx
-  version: ef50b0de28773081167c97fc27cf29a0bf8b8c71
+  version: 27373ced094756c353f68145eb313a575ca613ed
 - name: github.com/stretchr/testify
-  version: f35b8ab0b5a2cef36673838d662e249dd9c94686
+  version: ab6dc3262822ed562480c19876b0257ace761e3e
   subpackages:
   - assert
   - require
   - suite
+- name: github.com/wirenboard/gosnmp
+  version: 2b14b588fe30aba4e3d08624f1706665421fd5f7
 - name: golang.org/x/net
-  version: 60c41d1de8da134c05b7b40154a9a82bf5b7edb9
+  version: fe4d6282115f0528fd5bc04b5644ce8ba1f43a50
   subpackages:
   - websocket
 - name: golang.org/x/sys
-  version: d75a52659825e75fff6158388dddc6a5b04f9ba5
+  version: 1d35b9e2eb4edf581781c7f3e2a36fac701f0a24
   subpackages:
+  - internal/unsafeheader
   - unix
 - name: gopkg.in/fsnotify.v1
-  version: 629574ca2a5df945712d3079857300b5e4da0236
+  version: 466b39d216616549a37ee93c7c47775f6a010790
+- name: gopkg.in/yaml.v3
+  version: 496545a6307b2a7d7a710fd516e5e16e8ab62dbc
 testImports: []
