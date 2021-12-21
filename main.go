@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	m "github.com/contactless/wb-mqtt-snmp/mqtt_snmp"
+	m "github.com/wirenboard/wb-mqtt-snmp/mqtt_snmp"
 	"github.com/contactless/wbgo"
 	"io"
 	"os"

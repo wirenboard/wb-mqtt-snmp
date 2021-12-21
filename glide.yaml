@@ -1,7 +1,0 @@
-package: github.com/contactless/wb-mqtt-snmp
-import:
-- package: github.com/wirenboard/gosnmp
-- package: github.com/contactless/wbgo
-  version: 0.0.5
-  subpackages:
-  - testutils

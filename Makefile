@@ -24,7 +24,6 @@ amd64:
 	$(MAKE) DEB_TARGET_ARCH=amd64
 
 wb-mqtt-snmp: main.go mqtt_snmp/*.go
-	$(GO_ENV) glide install
 	$(GO_ENV) go build
 
 install:
