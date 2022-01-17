@@ -7,7 +7,7 @@ Type=simple
 Restart=always
 RestartSec=1
 User=root
-ExecStart=/bin/bash -c "HOME=/root exec /usr/bin/wb-mqtt-snmp -config /etc/wb-mqtt-snmp.conf 2>&1 | logger -t mqtt_snmp"
+ExecStart=/usr/bin/wb-mqtt-snmp -config /etc/wb-mqtt-snmp.conf
 
 [Install]
 WantedBy=multi-user.target
