@@ -7,9 +7,17 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"fmt"
+	"runtime/debug"
 )
 
 func main() {
+
+    defer func() {
+        if r := recover(); r != nil {
+            fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
+        }
+    }()
 
 	broker := flag.String("broker", "tcp://localhost:1883", "MQTT broker URL")
 	configFile := flag.String("config", "/etc/wb-mqtt-snmp.conf", "Config file location")
