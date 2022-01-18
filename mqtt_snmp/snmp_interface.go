@@ -2,7 +2,7 @@ package mqtt_snmp
 
 import (
 	l "github.com/alouca/gologger"
-	"github.com/alouca/gosnmp"
+	"github.com/wirenboard/gosnmp"
 )
 
 // Minimal SNMP interface
@@ -19,7 +19,7 @@ type SnmpFactory func(address, community string, version gosnmp.SnmpVersion, tim
 func NewGoSNMP(address, community string, version gosnmp.SnmpVersion, timeout int64, debug bool) (SnmpInterface, error) {
 	i, e := gosnmp.NewGoSNMP(address, community, version, timeout)
 
-	if debug {
+	if (debug && (e == nil)) {
 		i.Log = l.CreateLogger(true, true)
 	}
 

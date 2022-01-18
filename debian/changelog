@@ -1,3 +1,10 @@
+wb-mqtt-snmp (1.1.0) stable; urgency=medium
+
+  * Added go.mod and go.sum files
+  * Removed init.d script and added the Systemd service
+
+ -- Roman Kochkin <roman.kochkin@wirenboard.ru>  Mon, 17 Jan 2022 14:10:00 +0300
+
 wb-mqtt-snmp (1.0.1) stable; urgency=medium
 
   * Fix race on pollTimer initialization

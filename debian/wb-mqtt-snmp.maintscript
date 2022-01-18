@@ -1,0 +1,1 @@
+rm_conffile /etc/init.d/wb-mqtt-snmp 1.0.1~

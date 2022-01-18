@@ -1,0 +1,13 @@
+[Unit]
+Description=MQTT Driver for snmp devices
+After=network-online.target wb-hwconf-manager.service wb-modules.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+User=root
+ExecStart=/usr/bin/wb-mqtt-snmp -config /etc/wb-mqtt-snmp.conf
+
+[Install]
+WantedBy=multi-user.target
