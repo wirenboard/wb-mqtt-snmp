@@ -5,7 +5,7 @@ After=network-online.target wb-hwconf-manager.service wb-modules.service
 [Service]
 Type=simple
 Restart=always
-RestartSec=1
+RestartSec=5
 User=root
 ExecStart=/usr/bin/wb-mqtt-snmp -config /etc/wb-mqtt-snmp.conf
 
