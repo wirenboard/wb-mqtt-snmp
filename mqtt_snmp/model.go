@@ -2,8 +2,8 @@ package mqtt_snmp
 
 import (
 	"fmt"
-	"github.com/wirenboard/gosnmp"
 	"github.com/contactless/wbgo"
+	"github.com/wirenboard/gosnmp"
 	"net"
 	"time"
 	"unicode/utf8"
@@ -213,15 +213,15 @@ LPollWorker:
 			dev := m.DeviceChannelMap[r.Channel]
 			packet, e := dev.snmp.Get(r.Channel.Oid)
 			if e != nil {
-				// TODO: make it Error and suppress on testing
 				wbgo.Debug.Printf("failed to poll %s:%s: %s", dev.DevName, r.Channel.Name, e)
-				err <- PollError{Channel: r.Channel}
+				err <- PollError{Channel: r.Channel, Error: e.Error()}
 			} else {
 				for i := range packet.Variables {
 					data, valid := ConvertSnmpValue(packet.Variables[i])
 					if !valid {
-						wbgo.Warn.Printf("failed to poll %s:%s: instance can't be converted to string", dev.DevName, r.Channel.Name)
-						err <- PollError{Channel: r.Channel}
+						errorMessage := fmt.Sprintf("failed to poll %s:%s: instance can't be converted to string", dev.DevName, r.Channel.Name)
+						wbgo.Warn.Printf(errorMessage)
+						err <- PollError{Channel: r.Channel, Error: errorMessage}
 					} else {
 						wbgo.Debug.Printf("[poller %d] Send result for request %v: %v", id, r, data)
 						res <- PollResult{Channel: r.Channel, Data: data}
@@ -269,12 +269,26 @@ LPublisherWorker:
 				dev.Cache[d.Channel] = d.Data
 				// send new value only if it has been changed
 				dev.Observer.OnValue(dev, d.Channel.Name, d.Data)
+				dev.Observer.OnError(dev, d.Channel.Name, "")
 			}
 			done <- struct{}{}
 		case e := <-err:
-			_ = e
+			// error handling
+			// get device of given channel
+			dev := m.DeviceChannelMap[e.Channel]
+
+			if dev == nil {
+				panic(fmt.Sprintf("device is not found for channel: %+v", e.Channel))
+			}
+			_, ok := dev.Cache[e.Channel]
+			if !ok {
+				wbgo.Debug.Printf("[publisher] Create new control for channel %+v\n", *(e.Channel))
+				dev.Observer.OnNewControl(dev, wbgo.Control{Name: e.Channel.Name, Type: e.Channel.ControlType, Order: e.Channel.Order})
+				dev.Cache[e.Channel] = ""
+			}
+			dev.Observer.OnError(dev, e.Channel.Name, e.Error)
+
 			done <- struct{}{}
-			// TODO: process error
 		case <-quit:
 			done <- struct{}{}
 			break LPublisherWorker
