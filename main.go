@@ -2,22 +2,22 @@ package main
 
 import (
 	"flag"
-	m "github.com/wirenboard/wb-mqtt-snmp/mqtt_snmp"
+	"fmt"
 	"github.com/contactless/wbgo"
+	m "github.com/wirenboard/wb-mqtt-snmp/mqtt_snmp"
 	"io"
 	"os"
 	"os/signal"
-	"fmt"
 	"runtime/debug"
 )
 
 func main() {
 
-    defer func() {
-        if r := recover(); r != nil {
-            fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
-        }
-    }()
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
+		}
+	}()
 
 	broker := flag.String("broker", "tcp://localhost:1883", "MQTT broker URL")
 	configFile := flag.String("config", "/etc/wb-mqtt-snmp.conf", "Config file location")

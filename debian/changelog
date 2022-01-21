@@ -1,3 +1,9 @@
+wb-mqtt-snmp (1.2.0) stable; urgency=medium
+
+  * Added connection error handling
+
+ -- Roman Kochkin <roman.kochkin@wirenboard.ru>  Thu, 20 Jan 2022 17:11:00 +0300
+
 wb-mqtt-snmp (1.1.0) stable; urgency=medium
 
   * Added go.mod and go.sum files

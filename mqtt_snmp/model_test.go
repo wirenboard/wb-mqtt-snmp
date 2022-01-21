@@ -2,9 +2,9 @@ package mqtt_snmp
 
 import (
 	"fmt"
-	"github.com/wirenboard/gosnmp"
 	"github.com/contactless/wbgo"
 	"github.com/contactless/wbgo/testutils"
+	"github.com/wirenboard/gosnmp"
 	"strings"
 	"sync"
 	"testing"
@@ -29,6 +29,7 @@ const (
 
 	OnValueEvent MockDeviceEventType = iota
 	OnNewControlEvent
+	OnErrorEvent
 )
 
 type MockDeviceEvent struct {
@@ -53,6 +54,10 @@ func (o *MockDeviceObserver) OnNewControl(dev wbgo.LocalDeviceModel, control wbg
 	defer o.mutex.Unlock()
 	o.Log <- MockDeviceEvent{OnNewControlEvent, fmt.Sprintf("device %s, name %s, type %s, value %s, order %d", dev.Name(), control.Name, control.GetType(), control.Value, control.Order)}
 	return control.Value
+}
+
+// The OnError stub
+func (o *MockDeviceObserver) OnError(dev wbgo.DeviceModel, name, value string) {
 }
 
 // CheckEvents checks if all events from list were pushed into log (maybe in another order)
@@ -444,7 +449,7 @@ func (m *ModelWorkersTest) TestPollWorker() {
 	default:
 		m.Fail("no error from poller")
 	}
-	m.Equal(er, PollError{Channel: ch2})
+	m.Equal(er, PollError{Channel: ch2, Error: "No such instance"})
 
 	// close worker
 	m.quitChannel <- struct{}{}
@@ -456,6 +461,8 @@ func (m *ModelWorkersTest) TestPollWorker() {
 	case <-timeout4:
 		m.Fail("poll worker timeout on quit")
 	}
+
+	m.EnsureGotErrors()
 }
 
 // Test whole model
