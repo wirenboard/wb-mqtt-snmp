@@ -2,12 +2,11 @@ github.com/alouca/gologger v0.0.0-20120904114645-7d4b7291de9c h1:k/7/05/5kPRX7Ha
 github.com/alouca/gologger v0.0.0-20120904114645-7d4b7291de9c/go.mod h1:SI1d/2/wpSTDjHgdS9ZLy6hqvsdhzVYAc8RLztweMpA=
 github.com/contactless/org.eclipse.paho.mqtt.golang v0.0.0-20160512050345-bc107ec72972 h1:itvKwLlIg3MLdjVqhPuYFd0y9RsrQQxSIhZXUeNFtmA=
 github.com/contactless/org.eclipse.paho.mqtt.golang v0.0.0-20160512050345-bc107ec72972/go.mod h1:ISd8VT87v5vB6N33PDJrbWYlI0+r46JxZ9+yEDTKThc=
-github.com/contactless/wbgo v0.0.0-20161221153022-460958878cac h1:M8CKdAmQ5NDG4gJdgfNbB7UOpxHNmDpLEjk+6HgNCK4=
-github.com/contactless/wbgo v0.0.0-20161221153022-460958878cac/go.mod h1:zpSgGrFuNosiXs0VtRMXlWLyddi9QYrq5v+a4WuUU9s=
 github.com/contactless/wbgo v0.0.0-20170113112953-645ba6f5f8fd h1:0eOGK7ytp7a5qUDOi4zOeywmcfyzGZOnvui4tamc5so=
-github.com/contactless/wbgo v0.0.0-20170113112953-645ba6f5f8fd/go.mod h1:zpSgGrFuNosiXs0VtRMXlWLyddi9QYrq5v+a4WuUU9s=
 github.com/contactless/wbgo v0.0.0-20220120105130-8c1ce2c7a52f h1:zW0e9scDN+NusD/BIbfV8M2FgjvdwZi5vTdkrzQidw0=
 github.com/contactless/wbgo v0.0.0-20220120105130-8c1ce2c7a52f/go.mod h1:zpSgGrFuNosiXs0VtRMXlWLyddi9QYrq5v+a4WuUU9s=
+github.com/contactless/wbgo v0.0.0-20220121122043-0ed1df7257ab h1:OQUa4mX9q4XgZJFOOze5G51AswyNow7q5EML4nhL5ZE=
+github.com/contactless/wbgo v0.0.0-20220121122043-0ed1df7257ab/go.mod h1:zpSgGrFuNosiXs0VtRMXlWLyddi9QYrq5v+a4WuUU9s=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fsnotify/fsnotify v1.5.1 h1:mZcQUHVQUQWoPXXtuf9yuEXKudkV2sx1E06UadKWpgI=
@@ -20,8 +19,6 @@ github.com/stretchr/testify v1.2.2 h1:bSDNvY7ZPG5RlJ8otE/7V6gMiyenm9RtJ7IUVIAoJ1
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/wirenboard/gosnmp v0.0.0-20220118091453-3430a196b67e h1:FOqyecuCZ1HJO4zx2ArnBjjFBAEAXcygIFSVd+ymw7k=
 github.com/wirenboard/gosnmp v0.0.0-20220118091453-3430a196b67e/go.mod h1:z1gncWAav+ZxRS9HnhYK55RrXQNbc85u8oWYzqrSou0=
-github.com/wirenboard/wbgo v0.0.0-20220120105130-8c1ce2c7a52f h1:bc8RdHUZTcSE0ljb8tSWp7d/Q2yeQrebXKk2r/W2zgE=
-github.com/wirenboard/wbgo v0.0.0-20220120105130-8c1ce2c7a52f/go.mod h1:hFt8AQyn2cuIp2wFWBL+dxFlSa3ljwZPLPOfEM45vRw=
 golang.org/x/net v0.0.0-20170110034938-60c41d1de8da h1:5sENVFSzUZwVwtS8PadtC7Q9tmj886JSt2pRIwSAVZE=
 golang.org/x/net v0.0.0-20170110034938-60c41d1de8da/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
 golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c h1:F1jZWGFhYfh0Ci55sIpILtKKK8p3i2/krTr0H1rg74I=

@@ -213,14 +213,14 @@ LPollWorker:
 			dev := m.DeviceChannelMap[r.Channel]
 			packet, e := dev.snmp.Get(r.Channel.Oid)
 			if e != nil {
-				wbgo.Debug.Printf("failed to poll %s:%s: %s", dev.DevName, r.Channel.Name, e)
+				wbgo.Error.Printf("failed to poll %s:%s: %s", dev.DevName, r.Channel.Name, e)
 				err <- PollError{Channel: r.Channel, Error: e.Error()}
 			} else {
 				for i := range packet.Variables {
 					data, valid := ConvertSnmpValue(packet.Variables[i])
 					if !valid {
 						errorMessage := fmt.Sprintf("failed to poll %s:%s: instance can't be converted to string", dev.DevName, r.Channel.Name)
-						wbgo.Warn.Printf(errorMessage)
+						wbgo.Error.Printf(errorMessage)
 						err <- PollError{Channel: r.Channel, Error: errorMessage}
 					} else {
 						wbgo.Debug.Printf("[poller %d] Send result for request %v: %v", id, r, data)

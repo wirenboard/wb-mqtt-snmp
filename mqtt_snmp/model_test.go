@@ -461,6 +461,8 @@ func (m *ModelWorkersTest) TestPollWorker() {
 	case <-timeout4:
 		m.Fail("poll worker timeout on quit")
 	}
+
+	m.EnsureGotErrors()
 }
 
 // Test whole model
