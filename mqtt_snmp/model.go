@@ -286,7 +286,7 @@ LPublisherWorker:
 				dev.Observer.OnNewControl(dev, wbgo.Control{Name: e.Channel.Name, Type: e.Channel.ControlType, Order: e.Channel.Order})
 				dev.Cache[e.Channel] = ""
 			}
-			dev.Observer.OnError(dev, e.Channel.Name, e.Error)
+			dev.Observer.OnError(dev, e.Channel.Name, "r")
 
 			done <- struct{}{}
 		case <-quit:
