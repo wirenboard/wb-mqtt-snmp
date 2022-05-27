@@ -1,3 +1,9 @@
+wb-mqtt-snmp (1.2.1) stable; urgency=medium
+
+  * gosnmp: fix request ID type, was treated as signed int instead of unsigned
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Fri, 27 May 2022 17:08:48 +0300
+
 wb-mqtt-snmp (1.2.0) stable; urgency=medium
 
   * Added connection error handling
