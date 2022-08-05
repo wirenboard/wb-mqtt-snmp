@@ -265,10 +265,12 @@ LPublisherWorker:
 				}
 				wbgo.Debug.Printf("[publisher] Create new control for channel %+v\n", *(d.Channel))
 				dev.Observer.OnNewControl(dev, wbgo.Control{Name: d.Channel.Name, Type: controlType, Value: d.Data, Order: d.Channel.Order})
-			} else if val != d.Data {
-				dev.Cache[d.Channel] = d.Data
-				// send new value only if it has been changed
-				dev.Observer.OnValue(dev, d.Channel.Name, d.Data)
+			} else {
+				if val != d.Data {
+					dev.Cache[d.Channel] = d.Data
+					// send new value only if it has been changed
+					dev.Observer.OnValue(dev, d.Channel.Name, d.Data)
+				}
 				dev.Observer.OnError(dev, d.Channel.Name, "")
 			}
 			done <- struct{}{}
