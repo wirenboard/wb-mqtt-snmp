@@ -3,7 +3,7 @@ SNMP to MQTT gateway
 
 Драйвер SNMP для Wiren Board.
 
-Документация здесь: http://contactless.ru/wiki/index.php/Драйвер_SNMP
+Документация здесь: https://wirenboard.com/wiki/index.php/Драйвер_SNMP
 
 Зависимости
 -----------
