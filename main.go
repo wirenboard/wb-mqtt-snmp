@@ -19,7 +19,7 @@ func main() {
 		}
 	}()
 
-	broker := flag.String("broker", "tcp://localhost:1883", "MQTT broker URL")
+	broker := flag.String("broker", "unix:///var/run/mosquitto/mosquitto.sock", "MQTT broker URL")
 	configFile := flag.String("config", "/etc/wb-mqtt-snmp.conf", "Config file location")
 	templatesDir := flag.String("templates", "/usr/share/wb-mqtt-snmp/templates/", "Templates directory")
 	debug := flag.Bool("debug", false, "Enable debugging")
