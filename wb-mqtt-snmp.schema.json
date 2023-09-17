@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
   "type": "object",
-  "title": "SNMP Device Driver Configuration",
-  "description": "List devices to poll via SNMP protocol",
+  "title": "snmp_title",
+  "description": "snmp_description",
 
   "configFile": {
     "path": "/etc/wb-mqtt-snmp.conf",
@@ -63,7 +63,7 @@
         "oid_prefix": {
           "type": "string",
           "title": "SNMP object ID prefix (MIB name)",
-          "description": "Common prefix for names in channel OIDs (for SNMPv2-MIB::sysLocation.0 prefix is SNMPv2-MIB). May be overriden by writing OID in channel with prefix and '::'",
+          "description": "oid_prefix_description",
           "default": "",
           "propertyOrder": 70
         },
@@ -84,7 +84,7 @@
         "poll_interval": {
           "type": "integer",
           "title": "Desired default poll interval (ms)",
-          "description" : "This option specifies the desired interval between two consecutive polls of each channel (or total duration of the poll cycle)",
+          "description": "poll_interval_description",
           "minimum": 0,
           "default": 1000,
           "propertyOrder": 95
@@ -92,7 +92,7 @@
         "channels": {
           "type": "array",
           "title": "List of channels",
-          "description": "List device variables and their corresponding controls",
+          "description": "channels_description",
           "items": { "$ref": "#/definitions/channel" },
           "propertyOrder": 99
         }
@@ -141,7 +141,7 @@
             "type": "string",
             "title": "Units",
             "default": "",
-            "description": "Value units of measure (V, A, kWh etc.). Only for control_type == 'value'",
+            "description": "units_description",
             "propertyOrder": 35
         },
 
@@ -155,7 +155,7 @@
         "poll_interval": {
           "type": "integer",
           "title": "Desired poll interval (ms)",
-          "description" : "This option specifies the desired interval between two consecutive polls of each channel (or total duration of the poll cycle)",
+          "description": "poll_interval_description",
           "minimum": 0,
           "default": 1000,
           "propertyOrder": 50
@@ -193,11 +193,66 @@
     "max_unchanged_interval": {
       "type": "integer",
       "title": "Unchanged value posting interval",
-      "description": "Maximum interval in seconds between posting the same value to message queue. Zero - post at every reading, negative - don't post the same values",
+      "description": "max_unchanged_interval_description",
       "default": -1,
       "propertyOrder": 30
     }
   },
 
-  "required": [ "devices" ]
+  "required": [ "devices" ],
+
+  "translations": {
+    "en": {
+      "snmp_title": "SNMP Device Driver Configuration",
+      "snmp_description": "List devices to poll via SNMP protocol",
+      "oid_prefix_description": "Common prefix for names in channel OIDs (for SNMPv2-MIB::sysLocation.0 prefix is SNMPv2-MIB). May be overriden by writing OID in channel with prefix and '::'",
+      "poll_interval_description": "This option specifies the desired interval between two consecutive polls of each channel (or total duration of the poll cycle)",
+      "channels_description": "List device variables and their corresponding controls",
+      "units_description": "Value units of measure (V, A, kWh etc.). Only for control_type == 'value'",
+      "max_unchanged_interval_description": "Maximum interval in seconds between posting the same value to message queue. Zero - post at every reading, negative - don't post the same values"
+    },
+    "ru": {
+      "snmp_title": "Настройка драйвера SNMP-устройств",
+      "snmp_description": "Список устройств для опроса по протоколу SNMP",
+      "SNMP device": "SNMP устройство",
+      "Enable device": "Включить устройство",
+      "Device name": "Имя устройства",
+      "Device name to be displayed in UI": "Имя устройства, отображаемое в пользовательском интерфейсе",
+      "MQTT ID of the device": "MQTT идентификатор устройства",
+      "Used as a part of a MQTT topic name": "Используется как часть имени топика MQTT",
+      "SNMP device address": "Адрес устройства SNMP",
+      "May be either IP address or domain name": "Может быть IP-адресом или именем домена",
+      "Device type": "Тип устройства",
+      "Selects device template": "Выбирает шаблон устройства",
+      "SNMP community string": "Строка сообщества SNMP",
+      "Community string aka password": "Строка сообщества (пароль)",
+      "SNMP object ID prefix (MIB name)": "Префикс идентификатора объекта SNMP (имя MIB)",
+      "oid_prefix_description": "Общий префикс для имен в идентификаторах каналов (для SNMPv2-MIB::sysLocation.0 префикс - SNMPv2-MIB). Может быть переопределен путем записи OID в канал с префиксом и '::'",
+      "SNMP protocol version for device": "Версия протокола SNMP для устройства",
+      "SNMP timeout (in seconds)": "Таймаут SNMP (в секундах)",
+      "Desired default poll interval (ms)": "Желаемый интервал опроса по умолчанию (мс)",
+      "poll_interval_description": "Эта опция определяет желаемый интервал между двумя последовательными опросами каждого канала (или общую продолжительность цикла опроса)",
+      "List of channels": "Список каналов",
+      "channels_description": "Список переменных устройства и соответствующих им элементов управления",
+      "Channel": "Канал",
+      "Enable channel": "Включить канал",
+      "Control name": "Имя элемента управления",
+      "This name is displayed both in MQTT topic and UI": "Это имя отображается как в топике MQTT, так и в пользовательском интерфейсе",
+      "Object ID": "Идентификатор объекта",
+      "OID (starting from dot) or variable name from MIB": "OID (начиная с точки) или имя переменной из MIB",
+      "Control type": "Тип элемента управления",
+      "Defaults to 'text'": "По умолчанию - 'text'",
+      "Units": "Единицы измерения",
+      "units_description": "Единицы измерения значения (В, А, кВтч и т.д.). Только для control_type == 'value'",
+      "Scale (value multiplier)": "Множитель значения",
+      "Desired poll interval (ms)": "Желаемый интервал опроса (мс)",
+      "Enable debug logging": "Включить отладочное логирование",
+      "Number of SNMP connections": "Количество соединений SNMP",
+      "Number of SNMP clients running simultaneously": "Количество одновременно работающих SNMP-клиентов",
+      "List of devices": "Список устройств",
+      "Hosts to be accessed by driver": "Хосты, к которым обращается драйвер",
+      "Unchanged value posting interval": "Интервал публикации неизмененных значений",
+      "max_unchanged_interval_description": "Максимальный интервал в секундах между публикациями одинаковых значений в очередь сообщений. Ноль - публиковать при каждом чтении, отрицательное значение - не публиковать одинаковые значения"
+    }
+  }
 }
