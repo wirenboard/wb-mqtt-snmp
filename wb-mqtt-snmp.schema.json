@@ -145,7 +145,8 @@
           "propertyOrder": 35,
           "_format": "edWb",
           "options": {
-            "enum_values": ["mm/h", "m/s", "W", "kWh", "V", "mV", "m^3/h", "m^3", "Gcal/h", "cal", "Gcal", "Ohm", "mOhm", "bar", "mbar", "s", "min", "h", "m", "g", "kg", "mol", "cd", "%, RH", "deg C", "%", "ppm", "ppb", "A", "mA", "deg", "rad"]
+            "enum_values": ["mm/h", "m/s", "W", "kWh", "V", "mV", "m^3/h", "m^3", "Gcal/h", "cal", "Gcal", "Ohm", "mOhm", "bar", "mbar", "s", "min", "h", "m", "g", "kg", "mol", "cd", "%, RH", "deg C", "%", "ppm", "ppb", "A", "mA", "deg", "rad"],
+            "enum_titles": ["mm/h", "m/s", "W", "kWh", "V", "mV", "m³/h", "m³", "Gcal/h", "cal", "Gcal", "Ohm", "mOhm", "bar", "mbar (100 Pa)", "s", "min", "h", "m", "g", "kg", "mol", "cd", "%, RH", "°C", "%", "ppm", "ppb", "A", "mA", "°", "rad"]
           }
         },
 
@@ -255,7 +256,32 @@
       "List of devices": "Список устройств",
       "Hosts to be accessed by driver": "Хосты, к которым обращается драйвер",
       "Unchanged value posting interval (s)": "Интервал публикации неизмененных значений (с)",
-      "max_unchanged_interval_description": "Максимальный интервал между публикациями одинаковых значений в очередь сообщений. Ноль - публиковать при каждом чтении, отрицательное значение - не публиковать одинаковые значения"
+      "max_unchanged_interval_description": "Максимальный интервал между публикациями одинаковых значений в очередь сообщений. Ноль - публиковать при каждом чтении, отрицательное значение - не публиковать одинаковые значения",
+      "mm/h": "мм/ч",
+      "m/s": "м/с",
+      "W": "Вт",
+      "kWh": "кВтч",
+      "V": "В",
+      "mV": "мВ",
+      "mA": "мА",
+      "m³/h": "м³/ч",
+      "m³": "м³",
+      "Gcal/h": "Гкал/ч",
+      "cal": "кал",
+      "Gcal": "Гкал",
+      "Ohm": "Ом",
+      "mOhm": "мОм",
+      "bar": "бар",
+      "mbar (100 Pa)": "мбар (100 Па)",
+      "s": "c",
+      "min": "мин",
+      "h": "ч",
+      "m": "м",
+      "g": "г",
+      "kg": "кг",
+      "mol": "моль",
+      "cd": "кд",
+      "rad": "рад"
     }
   }
 }
