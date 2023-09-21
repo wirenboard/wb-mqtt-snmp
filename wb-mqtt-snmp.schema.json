@@ -215,7 +215,7 @@
       "snmp_title": "Настройка драйвера SNMP-устройств",
       "snmp_description": "Список устройств для опроса по протоколу SNMP",
       "SNMP device": "SNMP устройство",
-      "Enable device": "Включить устройство",
+      "Enable device": "Опрашивать устройство",
       "Device name": "Имя устройства",
       "Device name to be displayed in UI": "Имя устройства, отображаемое в пользовательском интерфейсе",
       "MQTT ID of the device": "MQTT идентификатор устройства",
