@@ -97,7 +97,7 @@
           "propertyOrder": 99
         }
       },
-      
+
       "required": ["address"],
       "defaultProperties": ["address", "device_type", "enabled"]
     },
@@ -128,7 +128,7 @@
           "description": "OID (starting from dot) or variable name from MIB",
           "propertyOrder": 20
         },
-        
+
         "control_type": {
           "type": "string",
           "title": "Control type",
@@ -138,11 +138,15 @@
         },
 
         "units": {
-            "type": "string",
-            "title": "Units",
-            "default": "",
-            "description": "units_description",
-            "propertyOrder": 35
+          "type": "string",
+          "title": "Units",
+          "default": "",
+          "description": "units_description",
+          "propertyOrder": 35,
+          "_format": "edWb",
+          "options": {
+            "enum_values": ["mm/h", "m/s", "W", "kWh", "V", "mV", "m^3/h", "m^3", "Gcal/h", "cal", "Gcal", "Ohm", "mOhm", "bar", "mbar", "s", "min", "h", "m", "g", "kg", "mol", "cd", "%, RH", "deg C", "%", "ppm", "ppb", "A", "mA", "deg", "rad"]
+          }
         },
 
         "scale": {
@@ -174,12 +178,12 @@
       "propertyOrder": 10
     },
     "num_workers": {
-        "type": "integer",
-        "title": "Number of SNMP connections",
-        "description": "Number of SNMP clients running simultaneously",
-        "default": 4,
-        "maximum": 64,
-        "propertyOrder": 15
+      "type": "integer",
+      "title": "Number of SNMP connections",
+      "description": "Number of SNMP clients running simultaneously",
+      "default": 4,
+      "maximum": 64,
+      "propertyOrder": 15
     },
     "devices": {
       "type": "array",
