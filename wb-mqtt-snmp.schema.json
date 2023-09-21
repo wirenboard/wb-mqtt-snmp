@@ -57,7 +57,7 @@
         "community": {
           "type": "string",
           "title": "SNMP community string",
-          "description": "Community string aka password",
+          "description": "password",
           "propertyOrder": 60
         },
         "oid_prefix": {
@@ -224,8 +224,7 @@
       "May be either IP address or domain name": "Может быть IP-адресом или именем домена",
       "Device type": "Тип устройства",
       "Selects device template": "Выбирает шаблон устройства",
-      "SNMP community string": "Строка сообщества SNMP",
-      "Community string aka password": "Строка сообщества (пароль)",
+      "password": "пароль",
       "SNMP object ID prefix (MIB name)": "Префикс идентификатора объекта SNMP (имя MIB)",
       "oid_prefix_description": "Общий префикс для имен в идентификаторах каналов (для SNMPv2-MIB::sysLocation.0 префикс - SNMPv2-MIB). Может быть переопределен путем записи OID в канал с префиксом и '::'",
       "SNMP protocol version for device": "Версия протокола SNMP для устройства",
