@@ -1,3 +1,9 @@
+wb-mqtt-snmp (1.2.3) stable; urgency=medium
+
+  * Add translations
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Tue, 16 Sep 2023 18:39:00 +0400
+
 wb-mqtt-snmp (1.2.2) stable; urgency=medium
 
   * Support connection to Mosquitto through unix socket
