@@ -211,7 +211,7 @@
       "snmp_title": "SNMP Device Driver Configuration",
       "snmp_description": "List devices to poll via SNMP protocol",
       "oid_prefix_description": "Common prefix for names in channel OIDs (for SNMPv2-MIB::sysLocation.0 prefix is SNMPv2-MIB). May be overriden by writing OID in channel with prefix and '::'",
-      "poll_interval_description": "This option specifies the desired interval between two consecutive polls of each channel (or total duration of the poll cycle)",
+      "poll_interval_description": "Total duration of the poll cycle",
       "channels_description": "List device variables and their corresponding controls",
       "units_description": "Value units of measure (V, A, kWh etc.). Only for control_type == 'value'",
       "max_unchanged_interval_description": "Maximum interval between posting the same value to message queue. Zero - post at every reading, negative - don't post the same values"
@@ -235,7 +235,7 @@
       "SNMP protocol version for device": "Версия протокола SNMP для устройства",
       "SNMP timeout (s)": "Таймаут SNMP (с)",
       "Desired default poll interval (ms)": "Желаемый интервал опроса по умолчанию (мс)",
-      "poll_interval_description": "Эта опция определяет желаемый интервал между двумя последовательными опросами каждого канала (или общую продолжительность цикла опроса)",
+      "poll_interval_description": "Задаёт общую продолжительность цикла опроса",
       "List of channels": "Список каналов",
       "channels_description": "Список переменных устройства и соответствующих им элементов управления",
       "Channel": "Канал",
