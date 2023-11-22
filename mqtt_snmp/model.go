@@ -224,7 +224,7 @@ LPollWorker:
 						err <- PollError{Channel: r.Channel, Error: errorMessage}
 					} else {
 						wbgo.Debug.Printf("[poller %d] Send result for request %v: %v", id, r, data)
-						res <- PollResult{Channel: r.Channel, Data: data}
+						res <- PollResult{Channel: r.Channel, Data: r.Channel.Conv(data)}
 					}
 				}
 			}
