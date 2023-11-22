@@ -304,6 +304,14 @@ func (m *ModelWorkersTest) SetupTest() {
 						PollInterval: 2000,
 						Order:        2,
 					},
+					"channel3": &ChannelConfig{
+						Name:         "channel3",
+						Oid:          ".1.2.3.6",
+						ControlType:  "value",
+						Conv:         Scale(0.1),
+						PollInterval: 2000,
+						Order:        3,
+					},
 				},
 			},
 		},
@@ -383,6 +391,7 @@ func (m *ModelWorkersTest) TestPollWorker() {
 	t := time.Now()
 	ch1 := m.config.Devices["snmp_device1"].Channels["channel1"]
 	ch2 := m.config.Devices["snmp_device1"].Channels["channel2"]
+	ch3 := m.config.Devices["snmp_device1"].Channels["channel3"]
 
 	// Run poll worker
 	go m.model.PollWorker(0, m.queryChannel, m.resultChannel, m.errorChannel, m.quitChannel, done)
@@ -451,6 +460,28 @@ func (m *ModelWorkersTest) TestPollWorker() {
 	}
 	m.Equal(er, PollError{Channel: ch2, Error: "No such instance"})
 
+	//
+	// Poll new value with scale
+	InsertFakeSNMPMessage("127.0.0.1@test@.1.2.3.6", "100")
+	m.queryChannel <- PollQuery{ch3, t}
+	// wait
+	timeout5 := make(chan struct{})
+	go Timeout(500, timeout5)
+
+	select {
+	case <-done:
+	case <-timeout5:
+		m.Fail("poll worker timeout")
+	}
+
+	// get result
+	select {
+	case res = <-m.resultChannel:
+	default:
+		m.Fail("no result from poller")
+	}
+	m.Equal(res, PollResult{ch3, "10.0"})
+
 	// close worker
 	m.quitChannel <- struct{}{}
 
@@ -477,6 +508,7 @@ func (m *ModelWorkersTest) TestModel() {
 	// Set some SNMP values
 	InsertFakeSNMPMessage("127.0.0.1@test@.1.2.3.4", "foo")
 	InsertFakeSNMPMessage("127.0.0.1@test@.1.2.3.5", "bar")
+	InsertFakeSNMPMessage("127.0.0.1@test@.1.2.3.6", "200")
 
 	// Start model
 	m.model.Start()
@@ -489,6 +521,7 @@ func (m *ModelWorkersTest) TestModel() {
 	events1 := []*MockDeviceEvent{
 		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel1, type value, value foo, order 1"},
 		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel2, type value, value bar, order 2"},
+		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel3, type value, value 20.0, order 3"},
 	}
 
 	m.NoError(obs.CheckEvents(events1, EventTimeout))
