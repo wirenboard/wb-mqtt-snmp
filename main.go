@@ -23,6 +23,7 @@ func main() {
 	configFile := flag.String("config", "/etc/wb-mqtt-snmp.conf", "Config file location")
 	templatesDir := flag.String("templates", "/usr/share/wb-mqtt-snmp/templates/", "Templates directory")
 	debug := flag.Bool("debug", false, "Enable debugging")
+	useSyslog := flag.Bool("syslog", false, "Use syslog for logging")
 
 	flag.Parse()
 
@@ -30,13 +31,19 @@ func main() {
 	var err error
 	var r io.Reader
 	if r, err = os.Open(*configFile); err != nil {
-		wbgo.Error.Fatalf("can't open config file %s: %s", *configFile, err)
+		wbgo.Error.Printf("can't open config file %s: %s", *configFile, err)
+		os.Exit(6) // EXIT_NOTCONFIGURED, see https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Process_Exit_Codes
 	}
 
 	// read config
 	var cfg *m.DaemonConfig
 	if cfg, err = m.NewDaemonConfig(r, *templatesDir); err != nil {
-		wbgo.Error.Fatalf("error parsing config file %s: %s", *configFile, err)
+		wbgo.Error.Printf("error parsing config file %s: %s", *configFile, err)
+		os.Exit(6) // EXIT_NOTCONFIGURED, see https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Process_Exit_Codes
+	}
+
+	if *useSyslog {
+		wbgo.UseSyslog()
 	}
 
 	// update debug flag

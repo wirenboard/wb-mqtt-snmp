@@ -41,3 +41,7 @@ debian/files
 
 # Lvim
 .lvimrc
+
+### direnv ###
+.direnv
+.envrc

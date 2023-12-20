@@ -191,7 +191,6 @@
       "title": "List of devices",
       "description": "Hosts to be accessed by driver",
       "items": { "$ref": "#/definitions/device" },
-      "minItems": 1,
       "_format": "list",
       "propertyOrder": 20
     },

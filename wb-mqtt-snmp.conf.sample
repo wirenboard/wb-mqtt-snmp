@@ -1,7 +1,4 @@
 {
   "debug": false,
-  "devices": [{
-    "address": "test.net-snmp.org",
-    "device_type": "test-snmp"
-  }]
+  "devices": []
 }

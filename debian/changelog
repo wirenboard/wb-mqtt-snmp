@@ -1,3 +1,11 @@
+wb-mqtt-snmp (1.2.6) stable; urgency=medium
+
+  * Fix default config (test.net-snmp.org is no longer available)
+  * Improve logging
+  * Add snmp-mibs-downloader to suggested dependencies
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Wed, 20 Dec 2023 12:48:00 +0400
+
 wb-mqtt-snmp (1.2.5) stable; urgency=medium
 
   * Use scale config parameter to convert values
