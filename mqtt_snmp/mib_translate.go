@@ -18,7 +18,7 @@ func TranslateOids(oids []string) (out map[string]string, err error) {
 	var raw_out []byte
 
 	// call snmptranslate
-	log.Printf("command to run: snmptranslate %#v -On", oids)
+	log.Printf("command to run: snmptranslate %s -On", strings.Join(oids, " "))
 	cmd := exec.Command("snmptranslate", append(oids, "-On")...)
 	raw_out, err = cmd.Output()
 
