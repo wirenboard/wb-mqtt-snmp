@@ -1,6 +1,6 @@
 wb-mqtt-snmp (1.2.7) stable; urgency=medium
 
-  * Fix service status on exit with NOTCONFIGURED
+  * Don't enable service by defauult
 
  -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Mon, 25 Dec 2023 11:50:00 +0400
 
