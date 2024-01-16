@@ -1,7 +1,7 @@
 .PHONY: all clean
 
 PREFIX = /usr
-DEB_TARGET_ARCH ?= armel
+DEB_TARGET_ARCH ?= armhf
 
 ifeq ($(DEB_TARGET_ARCH),armel)
 GO_ENV := GOARCH=arm GOARM=5 CC_FOR_TARGET=arm-linux-gnueabi-gcc CC=$$CC_FOR_TARGET CGO_ENABLED=1
@@ -31,15 +31,14 @@ wb-mqtt-snmp: main.go mqtt_snmp/*.go
 	$(GO_ENV) go build
 
 install:
-	mkdir -p $(DESTDIR)$(PREFIX)/share/wb-mqtt-confed/schemas/
 	mkdir -p $(DESTDIR)$(PREFIX)/share/wb-mqtt-snmp/
 	mkdir -p $(DESTDIR)/etc/wb-configs.d/
-	mkdir -p $(DESTDIR)$(PREFIX)/bin/ $(DESTDIR)/etc/init.d/
+	mkdir -p $(DESTDIR)/etc/init.d/
 
-	install -m 0755 wb-mqtt-snmp $(DESTDIR)$(PREFIX)/bin/
-	install -m 0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf.sample
-	install -m 0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf
-	install -m 0644 wb-mqtt-snmp.schema.json $(DESTDIR)$(PREFIX)/share/wb-mqtt-confed/schemas/wb-mqtt-snmp.schema.json
+	install -Dm0755 wb-mqtt-snmp -t $(DESTDIR)$(PREFIX)/bin
+	install -Dm0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf.sample
+	install -Dm0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf
+	install -Dm0644 wb-mqtt-snmp.schema.json -t $(DESTDIR)$(PREFIX)/share/wb-mqtt-confed/schemas
 
 	cp -rv ./templates $(DESTDIR)$(PREFIX)/share/wb-mqtt-snmp/templates
 
