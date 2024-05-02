@@ -1,14 +1,7 @@
 github.com/alouca/gologger v0.0.0-20120904114645-7d4b7291de9c h1:k/7/05/5kPRX7HaKyVYlsGVX6XkFTyYLqkqHzceUVlU=
 github.com/alouca/gologger v0.0.0-20120904114645-7d4b7291de9c/go.mod h1:SI1d/2/wpSTDjHgdS9ZLy6hqvsdhzVYAc8RLztweMpA=
-github.com/contactless/org.eclipse.paho.mqtt.golang v0.0.0-20160512050345-bc107ec72972 h1:itvKwLlIg3MLdjVqhPuYFd0y9RsrQQxSIhZXUeNFtmA=
-github.com/contactless/org.eclipse.paho.mqtt.golang v0.0.0-20160512050345-bc107ec72972/go.mod h1:ISd8VT87v5vB6N33PDJrbWYlI0+r46JxZ9+yEDTKThc=
 github.com/contactless/org.eclipse.paho.mqtt.golang v0.0.0-20230303073519-735a2c3f9cde h1:ToxrsyexBWyjTPfZ0Px49EAlXEurWtEYucYnr8g8G3U=
 github.com/contactless/org.eclipse.paho.mqtt.golang v0.0.0-20230303073519-735a2c3f9cde/go.mod h1:ISd8VT87v5vB6N33PDJrbWYlI0+r46JxZ9+yEDTKThc=
-github.com/contactless/wbgo v0.0.0-20170113112953-645ba6f5f8fd h1:0eOGK7ytp7a5qUDOi4zOeywmcfyzGZOnvui4tamc5so=
-github.com/contactless/wbgo v0.0.0-20220120105130-8c1ce2c7a52f h1:zW0e9scDN+NusD/BIbfV8M2FgjvdwZi5vTdkrzQidw0=
-github.com/contactless/wbgo v0.0.0-20220120105130-8c1ce2c7a52f/go.mod h1:zpSgGrFuNosiXs0VtRMXlWLyddi9QYrq5v+a4WuUU9s=
-github.com/contactless/wbgo v0.0.0-20220121122043-0ed1df7257ab h1:OQUa4mX9q4XgZJFOOze5G51AswyNow7q5EML4nhL5ZE=
-github.com/contactless/wbgo v0.0.0-20220121122043-0ed1df7257ab/go.mod h1:zpSgGrFuNosiXs0VtRMXlWLyddi9QYrq5v+a4WuUU9s=
 github.com/contactless/wbgo v0.0.0-20230303092421-d61f66227d17 h1:wD5ORFOlmoyEZhhf83TlGkhTwb2bFpbLT0U/ZVuCSuY=
 github.com/contactless/wbgo v0.0.0-20230303092421-d61f66227d17/go.mod h1:zpSgGrFuNosiXs0VtRMXlWLyddi9QYrq5v+a4WuUU9s=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
