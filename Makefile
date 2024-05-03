@@ -10,7 +10,7 @@ ifeq ($(DEB_TARGET_ARCH),armhf)
 GO_ENV := GOARCH=arm GOARM=6 CC_FOR_TARGET=arm-linux-gnueabihf-gcc CC=$$CC_FOR_TARGET CGO_ENABLED=1
 endif
 ifeq ($(DEB_TARGET_ARCH),arm64)
-GO_ENV := GOARCH=arm64 GOARM=6 CC_FOR_TARGET=aarch64-linux-gnu-gcc CC=$$CC_FOR_TARGET CGO_ENABLED=1
+GO_ENV := GOARCH=arm64 CC_FOR_TARGET=aarch64-linux-gnu-gcc CC=$$CC_FOR_TARGET CGO_ENABLED=1
 endif
 ifeq ($(DEB_TARGET_ARCH),amd64)
 GO_ENV := GOARCH=amd64 CC=x86_64-linux-gnu-gcc
@@ -39,6 +39,7 @@ install:
 	install -Dm0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf.sample
 	install -Dm0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf
 	install -Dm0644 wb-mqtt-snmp.schema.json -t $(DESTDIR)$(PREFIX)/share/wb-mqtt-confed/schemas
+	install -Dm0644 wb-mqtt-snmp.wbconfigs $(DESTDIR)/etc/wb-configs.d/19wb-mqtt-snmp
 
 	cp -rv ./templates $(DESTDIR)$(PREFIX)/share/wb-mqtt-snmp/templates
 
