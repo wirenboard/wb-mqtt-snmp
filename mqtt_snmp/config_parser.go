@@ -636,14 +636,14 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]interface{}) error {
 	// converter is an optional function depends on control type
 	// now scale function is presented only
 	if _, ok := channel["scale"]; ok {
-		if !isNumericControlType(c.ControlType) {
-			return fmt.Errorf("scale could be applied only to numeric control type")
-		} else {
+		if isNumericControlType(c.ControlType) {
 			var scale float64
 			if err := copyFloat64(&channel, "scale", &scale, false); err != nil {
 				return err
 			}
 			c.Conv = Scale(scale)
+		} else {
+			wbgo.Warn.Println("scale could be applied only to numeric control type")
 		}
 	}
 
