@@ -11,7 +11,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/objx v0.1.2-0.20180825064932-ef50b0de2877 // indirect
 	github.com/stretchr/testify v1.2.2 // indirect
-	github.com/wirenboard/gosnmp v0.0.0-20220118091453-3430a196b67e
+	github.com/wirenboard/gosnmp v0.0.0-20240716085959-a8de5010631e
 	golang.org/x/net v0.0.0-20170110034938-60c41d1de8da // indirect
 	gopkg.in/fsnotify.v1 v1.4.2 // indirect
 )
