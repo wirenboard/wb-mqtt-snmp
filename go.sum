@@ -14,8 +14,8 @@ github.com/stretchr/objx v0.1.2-0.20180825064932-ef50b0de2877 h1:6K1nYEj5Y6jqgsc
 github.com/stretchr/objx v0.1.2-0.20180825064932-ef50b0de2877/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.2.2 h1:bSDNvY7ZPG5RlJ8otE/7V6gMiyenm9RtJ7IUVIAoJ1w=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
-github.com/wirenboard/gosnmp v0.0.0-20220118091453-3430a196b67e h1:FOqyecuCZ1HJO4zx2ArnBjjFBAEAXcygIFSVd+ymw7k=
-github.com/wirenboard/gosnmp v0.0.0-20220118091453-3430a196b67e/go.mod h1:z1gncWAav+ZxRS9HnhYK55RrXQNbc85u8oWYzqrSou0=
+github.com/wirenboard/gosnmp v0.0.0-20240716093259-6134a4c52934 h1:aTF36GWEoHaBsUQiBWAuFYUxnPBK3NTlOaaO0ilceJw=
+github.com/wirenboard/gosnmp v0.0.0-20240716093259-6134a4c52934/go.mod h1:z1gncWAav+ZxRS9HnhYK55RrXQNbc85u8oWYzqrSou0=
 golang.org/x/net v0.0.0-20170110034938-60c41d1de8da h1:5sENVFSzUZwVwtS8PadtC7Q9tmj886JSt2pRIwSAVZE=
 golang.org/x/net v0.0.0-20170110034938-60c41d1de8da/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
 golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c h1:F1jZWGFhYfh0Ci55sIpILtKKK8p3i2/krTr0H1rg74I=

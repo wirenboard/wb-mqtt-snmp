@@ -22,6 +22,7 @@ _testmain.go
 *.exe
 *.test
 *.prof
+.devcontainer
 
 # Project specific
 wb-mqtt-snmp
