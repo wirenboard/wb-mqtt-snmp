@@ -28,7 +28,7 @@ amd64:
 	$(MAKE) DEB_TARGET_ARCH=amd64
 
 wb-mqtt-snmp: main.go mqtt_snmp/*.go
-	$(GO_ENV) go build
+	$(GO_ENV) go build -ldflags="-s -w"
 
 install:
 	mkdir -p $(DESTDIR)$(PREFIX)/share/wb-mqtt-snmp/
