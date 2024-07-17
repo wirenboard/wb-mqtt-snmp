@@ -19,7 +19,7 @@ const (
 	TemplatesDirectory = "./templates"
 
 	// Template file regexp
-	TemplatesFileMask = "config-.*\\.json"
+	TemplatesFileMask = ".*\\.json"
 
 	// Default poll interval for channels (ms)
 	DefaultChannelPollInterval = 1000
