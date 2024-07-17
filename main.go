@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"syscall"
 )
 
 func main() {
@@ -76,7 +77,7 @@ func main() {
 			wbgo.Debug.Println("Work in process")
 			// handle SIGINT
 			c := make(chan os.Signal, 1)
-			signal.Notify(c, os.Interrupt)
+			signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 
 			// block until SIGINT received
 			<-c

@@ -4,8 +4,8 @@ go 1.13
 
 require (
 	github.com/alouca/gologger v0.0.0-20120904114645-7d4b7291de9c
-	github.com/contactless/org.eclipse.paho.mqtt.golang v0.0.0-20230303073519-735a2c3f9cde // indirect
-	github.com/contactless/wbgo v0.0.0-20230303092421-d61f66227d17
+	github.com/contactless/org.eclipse.paho.mqtt.golang v0.9.2-0.20230303073519-735a2c3f9cde // indirect
+	github.com/contactless/wbgo v0.0.0-20240807235957-387511d40b67
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
