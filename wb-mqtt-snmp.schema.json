@@ -97,7 +97,9 @@
           "propertyOrder": 99
         }
       },
-
+      "options": {
+          "disable_edit_json": true
+      },
       "required": ["address"],
       "defaultProperties": ["address", "device_type", "enabled"]
     },
@@ -145,8 +147,8 @@
           "propertyOrder": 35,
           "_format": "edWb",
           "options": {
-            "enum_values": ["mm/h", "m/s", "W", "kWh", "V", "mV", "m^3/h", "m^3", "Gcal/h", "cal", "Gcal", "Ohm", "mOhm", "bar", "mbar", "s", "min", "h", "m", "g", "kg", "mol", "cd", "%, RH", "deg C", "%", "ppm", "ppb", "A", "mA", "deg", "rad"],
-            "enum_titles": ["mm/h", "m/s", "W", "kWh", "V", "mV", "m³/h", "m³", "Gcal/h", "cal", "Gcal", "Ohm", "mOhm", "bar", "mbar (100 Pa)", "s", "min", "h", "m", "g", "kg", "mol", "cd", "%, RH", "°C", "%", "ppm", "ppb", "A", "mA", "°", "rad"]
+            "enum_values": ["mm/h", "m/s", "W", "kWh", "V", "mV", "m^3/h", "m^3", "Gcal/h", "cal", "Gcal", "Ohm", "mOhm", "bar", "mbar", "s", "min", "h", "m", "g", "kg", "mol", "cd", "%, RH", "deg C", "%", "ppm", "ppb", "A", "mA", "deg", "rad", "lx", "dB", "Hz", "rpm"],
+            "enum_titles": ["mm/h", "m/s", "W", "kWh", "V", "mV", "m³/h", "m³", "Gcal/h", "cal", "Gcal", "Ohm", "mOhm", "bar", "mbar (100 Pa)", "s", "min", "h", "m", "g", "kg", "mol", "cd", "%, RH", "°C", "%", "ppm", "ppb", "A", "mA", "°", "rad", "lx", "dB", "Hz", "rpm"]
           }
         },
 
@@ -165,6 +167,9 @@
           "default": 1000,
           "propertyOrder": 50
         }
+      },
+      "options": {
+          "disable_edit_json": true
       },
       "required": [ "name" ]
     }
@@ -202,9 +207,10 @@
       "propertyOrder": 30
     }
   },
-
   "required": [ "devices" ],
-
+  "options": {
+      "disable_edit_json": true
+  },
   "translations": {
     "en": {
       "snmp_title": "SNMP Device Driver Configuration",
@@ -280,7 +286,11 @@
       "kg": "кг",
       "mol": "моль",
       "cd": "кд",
-      "rad": "рад"
+      "rad": "рад",
+      "lx": "лк",
+      "dB": "дБ",
+      "Hz": "Гц",
+      "rpm": "об/мин"
     }
   }
 }
