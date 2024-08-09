@@ -6,9 +6,12 @@ import (
 	"github.com/contactless/wbgo"
 	m "github.com/wirenboard/wb-mqtt-snmp/mqtt_snmp"
 	"io"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"syscall"
 )
 
 func main() {
@@ -24,8 +27,15 @@ func main() {
 	templatesDir := flag.String("templates", "/usr/share/wb-mqtt-snmp/templates/", "Templates directory")
 	debug := flag.Bool("debug", false, "Enable debugging")
 	useSyslog := flag.Bool("syslog", false, "Use syslog for logging")
+	profile := flag.String("profile", "", "Run pprof server")
 
 	flag.Parse()
+
+	if *profile != "" {
+		go func() {
+			wbgo.Debug.Println(http.ListenAndServe(*profile, nil))
+		}()
+	}
 
 	// open config file
 	var err error
@@ -67,7 +77,7 @@ func main() {
 			wbgo.Debug.Println("Work in process")
 			// handle SIGINT
 			c := make(chan os.Signal, 1)
-			signal.Notify(c, os.Interrupt)
+			signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 
 			// block until SIGINT received
 			<-c
