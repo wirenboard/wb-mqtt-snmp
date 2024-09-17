@@ -1,3 +1,9 @@
+wb-mqtt-snmp (1.3.4) stable; urgency=medium
+
+  * mqtt: republish retained messages on reconnect to broker
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Tue, 17 Sep 2024 13:05:00 +0400
+
 wb-mqtt-snmp (1.3.3) stable; urgency=medium
 
   * Cleanup topics on service stop
