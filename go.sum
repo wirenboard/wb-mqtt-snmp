@@ -2,8 +2,8 @@ github.com/alouca/gologger v0.0.0-20120904114645-7d4b7291de9c h1:k/7/05/5kPRX7Ha
 github.com/alouca/gologger v0.0.0-20120904114645-7d4b7291de9c/go.mod h1:SI1d/2/wpSTDjHgdS9ZLy6hqvsdhzVYAc8RLztweMpA=
 github.com/contactless/org.eclipse.paho.mqtt.golang v0.9.2-0.20230303073519-735a2c3f9cde h1:gSljmE7kq+6iYSt7vOoyNCO7mk5VsuA8LF4nHfqVEgw=
 github.com/contactless/org.eclipse.paho.mqtt.golang v0.9.2-0.20230303073519-735a2c3f9cde/go.mod h1:ISd8VT87v5vB6N33PDJrbWYlI0+r46JxZ9+yEDTKThc=
-github.com/contactless/wbgo v0.0.0-20240917090308-f4f8ce9c6bb4 h1:1CVC88/YVK5TJjtwUz4DsGqucRqVtZq2fLGQpE1byT4=
-github.com/contactless/wbgo v0.0.0-20240917090308-f4f8ce9c6bb4/go.mod h1:zpSgGrFuNosiXs0VtRMXlWLyddi9QYrq5v+a4WuUU9s=
+github.com/contactless/wbgo v0.0.0-20240917094408-dce7f9d9592b h1:aUIWk1zCbVgxnwUZU0qSt3jv+2DECB1wGYJHUh1/KrM=
+github.com/contactless/wbgo v0.0.0-20240917094408-dce7f9d9592b/go.mod h1:zpSgGrFuNosiXs0VtRMXlWLyddi9QYrq5v+a4WuUU9s=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fsnotify/fsnotify v1.5.1 h1:mZcQUHVQUQWoPXXtuf9yuEXKudkV2sx1E06UadKWpgI=
