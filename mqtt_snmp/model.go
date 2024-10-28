@@ -2,11 +2,13 @@ package mqtt_snmp
 
 import (
 	"fmt"
-	"github.com/contactless/wbgo"
-	"github.com/wirenboard/gosnmp"
 	"net"
+	"sync"
 	"time"
 	"unicode/utf8"
+
+	"github.com/contactless/wbgo"
+	"github.com/wirenboard/gosnmp"
 )
 
 const (
@@ -26,6 +28,9 @@ type SnmpDevice struct {
 
 	// SNMP connection
 	snmp SnmpInterface
+
+	// Mutex to protect SNMP connection
+	mutex sync.Mutex
 }
 
 // ConvertSnmpValue tries to convert variable value into string
@@ -101,6 +106,12 @@ func newSnmpDevice(snmpFactory SnmpFactory, config *DeviceConfig, debug bool) (d
 	}
 
 	return
+}
+
+func (d *SnmpDevice) Get(oid string) (*gosnmp.SnmpPacket, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	return d.snmp.Get(oid)
 }
 
 // TODO: receive values from MQTT and send it to SNMP?
@@ -211,7 +222,7 @@ LPollWorker:
 			wbgo.Debug.Printf("[poller %d] Receive request %v\n", id, r.Channel.Oid)
 			// process query
 			dev := m.DeviceChannelMap[r.Channel]
-			packet, e := dev.snmp.Get(r.Channel.Oid)
+			packet, e := dev.Get(r.Channel.Oid)
 			if e != nil {
 				wbgo.Error.Printf("failed to poll %s:%s: %s", dev.DevName, r.Channel.Name, e)
 				err <- PollError{Channel: r.Channel, Error: e.Error()}
