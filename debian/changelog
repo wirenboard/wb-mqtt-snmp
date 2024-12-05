@@ -1,3 +1,9 @@
+wb-mqtt-snmp (1.3.8) stable; urgency=medium
+
+  * Fix meta/error spam
+
+ -- Ekaterina Volkova <ekaterina.volkova@wirenboard.com>  Thu, 05 Dec 2024 10:46:18 +0300
+
 wb-mqtt-snmp (1.3.7) stable; urgency=medium
 
   * Fix snmp connection usage from multiple workers
