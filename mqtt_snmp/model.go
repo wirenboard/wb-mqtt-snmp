@@ -26,6 +26,9 @@ type SnmpDevice struct {
 	// Device cached values
 	Cache map[*ChannelConfig]string
 
+	// Device errors
+	Error map[*ChannelConfig]string
+
 	// SNMP connection
 	snmp SnmpInterface
 
@@ -103,6 +106,7 @@ func newSnmpDevice(snmpFactory SnmpFactory, config *DeviceConfig, debug bool) (d
 		snmp:       snmp,
 		Config:     config,
 		Cache:      make(map[*ChannelConfig]string),
+		Error:      make(map[*ChannelConfig]string),
 	}
 
 	return
@@ -269,6 +273,7 @@ LPublisherWorker:
 			if !ok {
 				// create value in cache and create new control in MQTT
 				dev.Cache[d.Channel] = d.Data
+				dev.Error[d.Channel] = ""
 				// TODO: read-only, max value and retain flags
 				controlType := d.Channel.ControlType
 				if d.Channel.Units != "" {
@@ -282,7 +287,11 @@ LPublisherWorker:
 					// send new value only if it has been changed
 					dev.Observer.OnValue(dev, d.Channel.Name, d.Data)
 				}
-				dev.Observer.OnError(dev, d.Channel.Name, "")
+				err, ok := dev.Error[d.Channel]
+				if ok && err != "" {
+					dev.Error[d.Channel] = ""
+					dev.Observer.OnError(dev, d.Channel.Name, "")
+				}				
 			}
 			done <- struct{}{}
 		case e := <-err:
@@ -298,8 +307,14 @@ LPublisherWorker:
 				wbgo.Debug.Printf("[publisher] Create new control for channel %+v\n", *(e.Channel))
 				dev.Observer.OnNewControl(dev, wbgo.Control{Name: e.Channel.Name, Type: e.Channel.ControlType, Order: e.Channel.Order})
 				dev.Cache[e.Channel] = ""
+				dev.Error[e.Channel] = "r"
 			}
-			dev.Observer.OnError(dev, e.Channel.Name, "r")
+
+			err, ok := dev.Error[e.Channel]
+			if ok && err != "r" {
+				dev.Error[e.Channel] = "r"
+				dev.Observer.OnError(dev, e.Channel.Name, "r")
+			}
 
 			done <- struct{}{}
 		case <-quit:
