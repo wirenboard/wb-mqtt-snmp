@@ -288,7 +288,7 @@ LPublisherWorker:
 					dev.Observer.OnValue(dev, d.Channel.Name, d.Data)
 				}
 				err, ok := dev.Error[d.Channel]
-				if ok and err != "" {
+				if ok && err != "" {
 					dev.Error[d.Channel] = ""
 					dev.Observer.OnError(dev, d.Channel.Name, "")
 				}				
@@ -311,7 +311,7 @@ LPublisherWorker:
 			}
 
 			err, ok := dev.Error[d.Channel]
-			if ok and err != "r" {
+			if ok && err != "r" {
 				dev.Error[d.Channel] = "r"
 				dev.Observer.OnError(dev, d.Channel.Name, "r")
 			}
