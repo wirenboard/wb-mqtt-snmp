@@ -307,13 +307,13 @@ LPublisherWorker:
 				wbgo.Debug.Printf("[publisher] Create new control for channel %+v\n", *(e.Channel))
 				dev.Observer.OnNewControl(dev, wbgo.Control{Name: e.Channel.Name, Type: e.Channel.ControlType, Order: e.Channel.Order})
 				dev.Cache[e.Channel] = ""
-				dev.Error[d.Channel] = "r"
+				dev.Error[e.Channel] = "r"
 			}
 
-			err, ok := dev.Error[d.Channel]
+			err, ok := dev.Error[e.Channel]
 			if ok && err != "r" {
-				dev.Error[d.Channel] = "r"
-				dev.Observer.OnError(dev, d.Channel.Name, "r")
+				dev.Error[e.Channel] = "r"
+				dev.Observer.OnError(dev, e.Channel.Name, "r")
 			}
 
 			done <- struct{}{}
