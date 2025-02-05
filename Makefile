@@ -19,6 +19,8 @@ ifeq ($(DEB_TARGET_ARCH),i386)
 GO_ENV := GOARCH=386 CC=i586-linux-gnu-gcc
 endif
 
+GO ?= go
+
 all: wb-mqtt-snmp
 
 clean:
@@ -28,7 +30,7 @@ amd64:
 	$(MAKE) DEB_TARGET_ARCH=amd64
 
 wb-mqtt-snmp: main.go mqtt_snmp/*.go
-	$(GO_ENV) go build -ldflags="-s -w"
+	$(GO_ENV) $(GO) build -ldflags="-s -w"
 
 install:
 	mkdir -p $(DESTDIR)$(PREFIX)/share/wb-mqtt-snmp/
@@ -44,7 +46,7 @@ install:
 	cp -rv ./templates $(DESTDIR)$(PREFIX)/share/wb-mqtt-snmp/templates
 
 test:
-	cd mqtt_snmp && CC= go test -cover
+	cd mqtt_snmp && CC= $(GO) test -cover
 
 deb:
 	$(GO_ENV) dpkg-buildpackage -b -a$(DEB_TARGET_ARCH) -us -uc
