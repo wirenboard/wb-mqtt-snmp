@@ -35,7 +35,6 @@ wb-mqtt-snmp: main.go mqtt_snmp/*.go
 install:
 	mkdir -p $(DESTDIR)$(PREFIX)/share/wb-mqtt-snmp/
 	mkdir -p $(DESTDIR)/etc/wb-configs.d/
-	mkdir -p $(DESTDIR)/etc/init.d/
 
 	install -Dm0755 wb-mqtt-snmp -t $(DESTDIR)$(PREFIX)/bin
 	install -Dm0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf.sample
@@ -46,7 +45,7 @@ install:
 	cp -rv ./templates $(DESTDIR)$(PREFIX)/share/wb-mqtt-snmp/templates
 
 test:
-	cd mqtt_snmp && CC= $(GO) test -cover
+	cd mqtt_snmp && CC= $(GO) test -gcflags="-N -l" -cover
 
 deb:
 	$(GO_ENV) dpkg-buildpackage -b -a$(DEB_TARGET_ARCH) -us -uc
