@@ -3,7 +3,7 @@ Maintainer: Wiren Board team <info@wirenboard.com>
 Section: misc
 Priority: optional
 Standards-Version: 4.5.1
-Build-Depends: debhelper (>= 9), golang-1.21-go:native
+Build-Depends: debhelper (>= 9), golang-1.24-go:native
 Homepage: https://github.com/wirenboard/wb-mqtt-snmp
 
 Package: wb-mqtt-snmp
