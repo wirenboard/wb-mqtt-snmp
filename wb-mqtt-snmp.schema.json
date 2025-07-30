@@ -33,8 +33,12 @@
           "type": "string",
           "title": "MQTT ID of the device",
           "description": "Used as a part of a MQTT topic name",
+          "pattern": "^[^$#+\\/]+$",
           "minLength": 1,
-          "propertyOrder": 20
+          "propertyOrder": 20,
+          "options": {
+            "patternmessage": "Invalid device name"
+          }
         },
         "address": {
           "type": "string",
@@ -120,8 +124,12 @@
           "type": "string",
           "title": "Control name",
           "description": "This name is displayed both in MQTT topic and UI",
+          "pattern": "^[^$#+\\/]+$",
           "minLength": 1,
-          "propertyOrder": 10
+          "propertyOrder": 10,
+          "options": {
+            "patternmessage": "Invalid control name"
+          }
         },
 
         "oid": {
@@ -230,6 +238,7 @@
       "Device name to be displayed in UI": "Заголовок карточки устройства в веб-интерфейсе контроллера",
       "MQTT ID of the device": "MQTT идентификатор устройства",
       "Used as a part of a MQTT topic name": "Используется как часть имени топика MQTT",
+      "Invalid device name": "Неверное имя устройства",
       "SNMP device address": "Адрес устройства SNMP",
       "May be either IP address or domain name": "Может быть IP-адресом или именем домена",
       "Device type": "Тип устройства",
@@ -247,6 +256,7 @@
       "Enable channel": "Включить канал",
       "Control name": "Имя элемента управления",
       "This name is displayed both in MQTT topic and UI": "Название канала устройства в MQTT и веб-интерфейсе контроллера",
+      "Invalid control name": "Неверное название канала",
       "Object ID": "Идентификатор объекта",
       "OID (starting from dot) or variable name from MIB": "OID (начиная с точки) или имя переменной из MIB",
       "Control type": "Тип элемента управления",
