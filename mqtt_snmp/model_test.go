@@ -65,7 +65,7 @@ func (o *MockDeviceObserver) CheckEvents(list []*MockDeviceEvent, timeout int) e
 	timeout_ch := make(chan struct{})
 	go Timeout(timeout, timeout_ch)
 
-	for _ = range list {
+	for range list {
 		select {
 		case <-timeout_ch:
 			return fmt.Errorf("event timeout")
@@ -134,7 +134,7 @@ func (snmp *FakeSNMP) Get(oid string) (packet *gosnmp.SnmpPacket, err error) {
 	}
 }
 
-func InsertFakeSNMPMessage(key string, value string) {
+func InsertFakeSNMPMessage(key, value string) {
 	fakeSNMPMessages[key] = &gosnmp.SnmpPacket{
 		Version:        gosnmp.Version2c,
 		Community:      "",

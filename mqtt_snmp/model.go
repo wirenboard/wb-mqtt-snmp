@@ -77,7 +77,7 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 		if !valid {
 			return
 		}
-		data = fmt.Sprintf("%s", d)
+		data = d.String()
 		valid = true
 	case gosnmp.TimeTicks:
 		var d uint64
@@ -94,8 +94,6 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 
 // Create new SNMP device instance from config tree
 func newSnmpDevice(snmpFactory SnmpFactory, config *DeviceConfig, debug bool) (device *SnmpDevice, err error) {
-	err = nil
-
 	snmp, err := snmpFactory(config.Address, config.Community, config.SnmpVersion, int64(config.SnmpTimeout), debug)
 	if err != nil {
 		return
@@ -253,7 +251,7 @@ LPollWorker:
 
 // Publisher worker
 // Receives new values from Reader workers
-func (m *SnmpModel) PublisherWorker(data <-chan PollResult, err <-chan PollError, quit chan struct{}, done chan struct{}) {
+func (m *SnmpModel) PublisherWorker(data <-chan PollResult, err <-chan PollError, quit, done chan struct{}) {
 LPublisherWorker:
 	for {
 		select {
@@ -430,7 +428,7 @@ func (m *SnmpModel) Stop() {
 	pollDone := 0
 	pubDone := 0
 	pollTimerDone := 0
-	for _ = range m.quitChannels {
+	for range m.quitChannels {
 		select {
 		case <-m.pollDoneChannel:
 			pollDone++

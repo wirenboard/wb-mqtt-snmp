@@ -3,9 +3,6 @@
 PREFIX = /usr
 DEB_TARGET_ARCH ?= armhf
 
-ifeq ($(DEB_TARGET_ARCH),armel)
-GO_ENV := GOARCH=arm GOARM=5 CC_FOR_TARGET=arm-linux-gnueabi-gcc CC=$$CC_FOR_TARGET CGO_ENABLED=1
-endif
 ifeq ($(DEB_TARGET_ARCH),armhf)
 GO_ENV := GOARCH=arm GOARM=6 CC_FOR_TARGET=arm-linux-gnueabihf-gcc CC=$$CC_FOR_TARGET CGO_ENABLED=1
 endif
@@ -13,13 +10,25 @@ ifeq ($(DEB_TARGET_ARCH),arm64)
 GO_ENV := GOARCH=arm64 CC_FOR_TARGET=aarch64-linux-gnu-gcc CC=$$CC_FOR_TARGET CGO_ENABLED=1
 endif
 ifeq ($(DEB_TARGET_ARCH),amd64)
-GO_ENV := GOARCH=amd64 CC=x86_64-linux-gnu-gcc
-endif
-ifeq ($(DEB_TARGET_ARCH),i386)
-GO_ENV := GOARCH=386 CC=i586-linux-gnu-gcc
+GO_ENV := GOARCH=amd64
 endif
 
 GO ?= go
+GOTEST ?= $(GO) test
+GCFLAGS :=
+LDFLAGS :=
+GO_FLAGS :=
+GO_TEST_FLAGS := -v -cover -race
+
+ifeq ($(DEBUG),)
+	LDFLAGS += -s -w
+	GO_FLAGS += -trimpath
+else
+	GCFLAGS += -N -l
+	GO_TEST_FLAGS += -failfast
+endif
+
+GO_FLAGS += $(if $(GCFLAGS),-gcflags=all="$(GCFLAGS)") $(if $(LDFLAGS),-ldflags="$(LDFLAGS)")
 
 all: wb-mqtt-snmp
 
@@ -30,7 +39,10 @@ amd64:
 	$(MAKE) DEB_TARGET_ARCH=amd64
 
 wb-mqtt-snmp: main.go mqtt_snmp/*.go
-	$(GO_ENV) $(GO) build -ldflags="-s -w"
+	$(GO_ENV) $(GO) build $(GO_FLAGS)
+
+test:
+	$(GOTEST) $(GO_FLAGS) $(GO_TEST_FLAGS) ./mqtt_snmp
 
 install:
 	mkdir -p $(DESTDIR)$(PREFIX)/share/wb-mqtt-snmp/
@@ -43,9 +55,3 @@ install:
 	install -Dm0644 wb-mqtt-snmp.wbconfigs $(DESTDIR)/etc/wb-configs.d/19wb-mqtt-snmp
 
 	cp -rv ./templates $(DESTDIR)$(PREFIX)/share/wb-mqtt-snmp/templates
-
-test:
-	cd mqtt_snmp && CC= $(GO) test -gcflags="-N -l" -cover
-
-deb:
-	$(GO_ENV) dpkg-buildpackage -b -a$(DEB_TARGET_ARCH) -us -uc

@@ -14,7 +14,6 @@ import (
 // using local `snmptranslate` utility and, so,
 // local installed MIBs
 func TranslateOids(oids []string) (out map[string]string, err error) {
-	err = nil
 	var raw_out []byte
 
 	// call snmptranslate
@@ -53,7 +52,7 @@ func TranslateOidsInDaemonConfig(config *DaemonConfig) error {
 	oids_list := make([]string, len(oids_set), len(oids_set)+1) // +1 for TranslateOids (for not to waste time on reallocations)
 
 	i := 0
-	for key, _ := range oids_set {
+	for key := range oids_set {
 		oids_list[i] = key
 		i += 1
 	}
@@ -66,7 +65,7 @@ func TranslateOidsInDaemonConfig(config *DaemonConfig) error {
 
 	// translate OIDs in config
 	for dev_key, device := range config.Devices {
-		for ch_key, _ := range device.Channels {
+		for ch_key := range device.Channels {
 			// TODO: it's a Go bullshit' workaround
 			tmp := config.Devices[dev_key].Channels[ch_key]
 			tmp.Oid = tmap[tmp.Oid]
