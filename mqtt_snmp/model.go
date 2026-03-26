@@ -80,8 +80,8 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 		data = fmt.Sprintf("%s", d)
 		valid = true
 	case gosnmp.TimeTicks:
-		var d int
-		d, valid = v.Value.(int)
+		var d uint64
+		d, valid = v.Value.(uint64)
 		if !valid {
 			return
 		}
@@ -291,7 +291,7 @@ LPublisherWorker:
 				if ok && err != "" {
 					dev.Error[d.Channel] = ""
 					dev.Observer.OnError(dev, d.Channel.Name, "")
-				}				
+				}
 			}
 			done <- struct{}{}
 		case e := <-err:
