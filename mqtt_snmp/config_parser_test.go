@@ -1,19 +1,14 @@
 package mqtt_snmp
 
 import (
-	"github.com/wirenboard/gosnmp"
-	"github.com/contactless/wbgo"
-	"github.com/contactless/wbgo/testutils"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
-)
 
-const (
-	// Testing templates directory
-	templatesDirectory = "./test-templates"
+	"github.com/contactless/wbgo"
+	"github.com/contactless/wbgo/testutils"
+	"github.com/wirenboard/gosnmp"
 )
 
 type ConfigParserSuite struct {
@@ -110,7 +105,7 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 			// check function pointer
 			if reflect.ValueOf(cvalue.Conv).Pointer() != reflect.ValueOf(b_cvalue.Conv).Pointer() {
 				if verbose {
-					wbgo.Debug.Printf("device %s channel %s convertion function mismatch", dkey, ckey)
+					wbgo.Debug.Printf("device %s channel %s conversion function mismatch", dkey, ckey)
 					wbgo.Debug.Printf("%v", reflect.ValueOf(cvalue.Conv))
 					wbgo.Debug.Print("vs.")
 					wbgo.Debug.Printf("%v", reflect.ValueOf(b_cvalue.Conv))
@@ -180,13 +175,13 @@ func (s *ConfigParserSuite) createDefaultTemplates() (err error) {
 
 	// write these templates into separate files in current dir (which is
 	// temp dir already)
-	if err = ioutil.WriteFile("config-type1.json", []byte(tpl1), os.ModePerm); err != nil {
+	if err = os.WriteFile("config-type1.json", []byte(tpl1), os.ModePerm); err != nil {
 		return
 	}
-	if err = ioutil.WriteFile("config-type2.json", []byte(tpl2), os.ModePerm); err != nil {
+	if err = os.WriteFile("config-type2.json", []byte(tpl2), os.ModePerm); err != nil {
 		return
 	}
-	if err = ioutil.WriteFile("config-type3.json", []byte(tpl3), os.ModePerm); err != nil {
+	if err = os.WriteFile("config-type3.json", []byte(tpl3), os.ModePerm); err != nil {
 		return
 	}
 
@@ -343,7 +338,7 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 	}
 
 	// compare fields
-	s.Equal(true, DaemonConfigsEqualVerbose(res, &expect, true))
+	s.True(DaemonConfigsEqualVerbose(res, &expect, true))
 }
 
 // Test OID prefix
@@ -420,7 +415,7 @@ func (s *ConfigParserSuite) TestOidPrefix() {
 	}
 
 	// compare fields
-	s.Equal(true, DaemonConfigsEqualVerbose(res, &expect, true))
+	s.True(DaemonConfigsEqualVerbose(res, &expect, true))
 }
 
 //

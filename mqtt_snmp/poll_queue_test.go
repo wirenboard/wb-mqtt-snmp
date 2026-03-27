@@ -1,9 +1,7 @@
 package mqtt_snmp
 
 import (
-	// "github.com/contactless/wbgo"
 	"github.com/contactless/wbgo/testutils"
-	// "log"
 	"strconv"
 	"testing"
 	"time"

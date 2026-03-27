@@ -3,14 +3,15 @@ package mqtt_snmp
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/wirenboard/gosnmp"
-	"github.com/contactless/wbgo"
 	"io"
-	"io/ioutil"
 	"math"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/contactless/wbgo"
+	"github.com/wirenboard/gosnmp"
 )
 
 const (
@@ -41,7 +42,7 @@ const (
 
 // Device templates storage type
 type deviceTemplatesStorage struct {
-	templates map[string]map[string]interface{}
+	templates map[string]map[string]any
 	Valid     bool
 }
 
@@ -52,13 +53,13 @@ func (tpl *deviceTemplatesStorage) Load(dir string) error {
 		return nil // templates are already loaded
 	}
 
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 
 	if err != nil {
 		return fmt.Errorf("failed to read templates dir %s: %s", dir, err.Error())
 	}
 
-	tpl.templates = make(map[string]map[string]interface{})
+	tpl.templates = make(map[string]map[string]any)
 
 	for _, file := range files {
 		m, err := regexp.MatchString(TemplatesFileMask, file.Name())
@@ -71,13 +72,13 @@ func (tpl *deviceTemplatesStorage) Load(dir string) error {
 			continue
 		}
 
-		data, err := ioutil.ReadFile(dir + "/" + file.Name())
+		data, err := os.ReadFile(dir + "/" + file.Name())
 
 		if err != nil {
 			return fmt.Errorf("failed to read template file %s: %s", file.Name(), err.Error())
 		}
 
-		var jsonData map[string]interface{}
+		var jsonData map[string]any
 
 		if err := json.Unmarshal(data, &jsonData); err != nil {
 			return fmt.Errorf("failed to parse JSON in template file %s: %s", file.Name(), err.Error())
@@ -100,7 +101,7 @@ func (tpl *deviceTemplatesStorage) Load(dir string) error {
 }
 
 // Initialize raw device entry using template
-func (tpl *deviceTemplatesStorage) InitEntry(devType string, entry map[string]interface{}) error {
+func (tpl *deviceTemplatesStorage) InitEntry(devType string, entry map[string]any) error {
 	if data, ok := tpl.templates[devType]; ok {
 		for key, value := range data {
 			entry[key] = value
@@ -185,7 +186,6 @@ func (c *DaemonConfig) LoadTemplates(path string) (err error) {
 }
 
 // Generate daemon config from input stream and directory with templates
-//
 func NewDaemonConfig(input io.Reader, templatesDir string) (config *DaemonConfig, err error) {
 	config = &DaemonConfig{}
 	if err = config.LoadTemplates(templatesDir); err != nil {
@@ -213,7 +213,7 @@ func (c *DaemonConfig) UnmarshalJSON(raw []byte) error {
 	var root struct {
 		Debug      bool
 		NumWorkers int `json:"num_workers"`
-		Devices    []map[string]interface{}
+		Devices    []map[string]any
 	}
 
 	root.NumWorkers = DefaultNumWorkers
@@ -230,8 +230,8 @@ func (c *DaemonConfig) UnmarshalJSON(raw []byte) error {
 	return c.parseDevices(root.Devices)
 }
 
-// Copy raw interface{} data from map to string
-func copyString(fromMap *map[string]interface{}, key string, to *string, required bool) error {
+// Copy raw any data from map to string
+func copyString(fromMap *map[string]any, key string, to *string, required bool) error {
 	if entry, ok := (*fromMap)[key]; ok {
 		if val, valid := entry.(string); valid {
 			*to = val
@@ -247,8 +247,8 @@ func copyString(fromMap *map[string]interface{}, key string, to *string, require
 	return nil
 }
 
-// Copy raw interface{} data from map to int
-func copyInt(fromMap *map[string]interface{}, key string, to *int, required bool) error {
+// Copy raw any data from map to int
+func copyInt(fromMap *map[string]any, key string, to *int, required bool) error {
 	if entry, ok := (*fromMap)[key]; ok {
 		if val, valid := entry.(float64); valid {
 			*to = int(val)
@@ -264,8 +264,8 @@ func copyInt(fromMap *map[string]interface{}, key string, to *int, required bool
 	return nil
 }
 
-// Copy raw interface{} data from map to SnmpVersion
-func copySnmpVersion(fromMap *map[string]interface{}, key string, to *gosnmp.SnmpVersion, required bool) error {
+// Copy raw any data from map to SnmpVersion
+func copySnmpVersion(fromMap *map[string]any, key string, to *gosnmp.SnmpVersion, required bool) error {
 	if entry, ok := (*fromMap)[key]; ok {
 		if val, valid := entry.(string); valid {
 			switch val {
@@ -288,8 +288,8 @@ func copySnmpVersion(fromMap *map[string]interface{}, key string, to *gosnmp.Snm
 	return nil
 }
 
-// Copy raw interface{} data from map to float64
-func copyFloat64(fromMap *map[string]interface{}, key string, to *float64, required bool) error {
+// Copy raw any data from map to float64
+func copyFloat64(fromMap *map[string]any, key string, to *float64, required bool) error {
 	if entry, ok := (*fromMap)[key]; ok {
 		if val, valid := entry.(float64); valid {
 			*to = val
@@ -305,7 +305,7 @@ func copyFloat64(fromMap *map[string]interface{}, key string, to *float64, requi
 	return nil
 }
 
-func (c *DaemonConfig) checkEnabled(channel map[string]interface{}) (bool, error) {
+func (c *DaemonConfig) checkEnabled(channel map[string]any) (bool, error) {
 	enabled := true
 
 	// check if channel is enabled
@@ -323,7 +323,7 @@ func (c *DaemonConfig) checkEnabled(channel map[string]interface{}) (bool, error
 }
 
 // Parse devices list
-func (c *DaemonConfig) parseDevices(devs []map[string]interface{}) error {
+func (c *DaemonConfig) parseDevices(devs []map[string]any) error {
 	if len(devs) == 0 {
 		return fmt.Errorf("devices list is empty")
 	}
@@ -339,7 +339,7 @@ func (c *DaemonConfig) parseDevices(devs []map[string]interface{}) error {
 }
 
 // Try to get name from channel entry
-func getNameFromEntry(entry *map[string]interface{}) (name string, err error) {
+func getNameFromEntry(entry *map[string]any) (name string, err error) {
 	err = nil
 
 	var valid bool
@@ -356,7 +356,7 @@ func getNameFromEntry(entry *map[string]interface{}) (name string, err error) {
 }
 
 // Lay real data over device template
-func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry map[string]interface{}, devEntry map[string]interface{}) error {
+func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry, devEntry map[string]any) error {
 	// rewrite all elements except 'channels'
 	for key, value := range devEntry {
 		if key != "channels" {
@@ -366,34 +366,34 @@ func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry map[string]interface{}
 
 	// merge channels
 	// check channels list from template
-	var tplChannelsList []interface{}
+	var tplChannelsList []any
 	var ok, valid bool
-	var tplChannelsListEntry, devChannelsListEntry interface{}
+	var tplChannelsListEntry, devChannelsListEntry any
 
 	if tplChannelsListEntry, ok = tplEntry["channels"]; ok {
-		if tplChannelsList, valid = tplChannelsListEntry.([]interface{}); !valid {
+		if tplChannelsList, valid = tplChannelsListEntry.([]any); !valid {
 			return fmt.Errorf("channels list must be array of objects; %T given", tplChannelsListEntry)
 		}
 	}
 
 	// check channels list from device description
-	var devChannelsList []interface{}
+	var devChannelsList []any
 	if devChannelsListEntry, ok = devEntry["channels"]; ok {
-		if devChannelsList, valid = devChannelsListEntry.([]interface{}); !valid {
+		if devChannelsList, valid = devChannelsListEntry.([]any); !valid {
 			return fmt.Errorf("channels list must be array of objects; %T given", devChannelsListEntry)
 		}
 	}
 
 	// create merging map
-	tplChannelsMap := make(map[string]map[string]interface{})
-	devChannelsMap := make(map[string]map[string]interface{})
+	tplChannelsMap := make(map[string]map[string]any)
+	devChannelsMap := make(map[string]map[string]any)
 
 	// this also returns list of channel names in original order (or error)
-	createMap := func(l []interface{}, m map[string]map[string]interface{}) ([]string, error) {
+	createMap := func(l []any, m map[string]map[string]any) ([]string, error) {
 		names := make([]string, 0, 10)
 
 		for _, chanEntry := range l {
-			if channel, valid := chanEntry.(map[string]interface{}); valid {
+			if channel, valid := chanEntry.(map[string]any); valid {
 				if name, err := getNameFromEntry(&channel); err == nil {
 
 					// check name collision first
@@ -440,7 +440,7 @@ func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry map[string]interface{}
 	}
 
 	// remove disabled channels
-	for name, _ := range tplChannelsMap {
+	for name := range tplChannelsMap {
 		if enabled, err := c.checkEnabled(tplChannelsMap[name]); err != nil {
 			return err
 		} else if !enabled {
@@ -471,12 +471,12 @@ func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry map[string]interface{}
 	}
 
 	// add order entries to all channels
-	for name, _ := range tplChannelsMap {
+	for name := range tplChannelsMap {
 		tplChannelsMap[name]["order"] = order[name]
 	}
 
 	// expose channelsMap to entry
-	chanList := make([]map[string]interface{}, len(tplChannelsMap))
+	chanList := make([]map[string]any, len(tplChannelsMap))
 	i := 0
 	for _, value := range tplChannelsMap {
 		chanList[i] = value
@@ -489,7 +489,7 @@ func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry map[string]interface{}
 }
 
 // Parse single device entry
-func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error {
+func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]any) error {
 
 	// Check if device is enabled and skip if not
 	if enableEntry, ok := devConfig["enabled"]; ok {
@@ -504,7 +504,7 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 
 	// Get device type and apply template to it
 	var devType string
-	devEntry := make(map[string]interface{})
+	devEntry := make(map[string]any)
 	var valid bool
 
 	// device_type is optional; if not present, just don't apply template
@@ -571,7 +571,7 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 
 	// parse channels
 	if channelsEntry, ok := devEntry["channels"]; ok {
-		if channels, valid := channelsEntry.([]map[string]interface{}); valid {
+		if channels, valid := channelsEntry.([]map[string]any); valid {
 			if err := d.parseChannels(channels); err != nil {
 				return fmt.Errorf("channel parse error in %s: %s", d.Id, err)
 			}
@@ -589,7 +589,7 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]interface{}) error 
 }
 
 // Parse channels list
-func (d *DeviceConfig) parseChannels(chans []map[string]interface{}) error {
+func (d *DeviceConfig) parseChannels(chans []map[string]any) error {
 	// for each element in input slice - create ChannelConfig structure and append to DeviceConfig
 	if len(chans) == 0 {
 		return fmt.Errorf("channels list is empty for %s", d.Id)
@@ -605,7 +605,7 @@ func (d *DeviceConfig) parseChannels(chans []map[string]interface{}) error {
 }
 
 // Parse single channel entry
-func (d *DeviceConfig) parseChannelEntry(channel map[string]interface{}) error {
+func (d *DeviceConfig) parseChannelEntry(channel map[string]any) error {
 
 	// create channel config struct
 	c := NewEmptyChannelConfig()

@@ -1,6 +1,12 @@
 #!/usr/bin/make -f
+
+MAKEFLAGS += GO=/usr/lib/go-1.21/bin/go
+
 %:
 	dh $@ --parallel
 
 override_dh_installinit:
 	dh_installinit --noscripts
+
+override_dh_auto_test:
+	dh_auto_test -- DEBUG=1
