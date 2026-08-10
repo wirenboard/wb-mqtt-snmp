@@ -1,2 +1,3 @@
-buildDebSbuild defaultTargets: 'trixie-armhf trixie-arm64',
+buildDebSbuild defaultTargets: 'current-armhf current-arm64',
+               defaultGoVersion: '1.26',
                defaultRunLintian: true

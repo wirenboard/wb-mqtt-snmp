@@ -1,6 +1,6 @@
 module github.com/wirenboard/wb-mqtt-snmp
 
-go 1.20
+go 1.24.0
 
 require (
 	github.com/alouca/gologger v0.0.0-20120904114645-7d4b7291de9c
