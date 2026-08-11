@@ -233,7 +233,7 @@ LPollWorker:
 					data, valid := ConvertSnmpValue(packet.Variables[i])
 					if !valid {
 						errorMessage := fmt.Sprintf("failed to poll %s:%s: instance can't be converted to string", dev.DevName, r.Channel.Name)
-						wbgo.Error.Printf(errorMessage)
+						wbgo.Error.Print(errorMessage)
 						err <- PollError{Channel: r.Channel, Error: errorMessage}
 					} else {
 						wbgo.Debug.Printf("[poller %d] Send result for request %v: %v", id, r, data)
