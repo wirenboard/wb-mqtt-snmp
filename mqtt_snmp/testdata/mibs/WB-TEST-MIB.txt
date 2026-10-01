@@ -1,0 +1,14 @@
+WB-TEST-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    OBJECT-TYPE, Integer32 FROM SNMPv2-SMI
+    wbTestRoot FROM WB-TEST-ROOT-MIB;
+
+wbTestValue OBJECT-TYPE
+    SYNTAX Integer32
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION "A value for testing OID translation."
+    ::= { wbTestRoot 1 }
+
+END
