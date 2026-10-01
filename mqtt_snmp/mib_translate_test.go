@@ -1,6 +1,7 @@
 package mqtt_snmp
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -119,6 +120,19 @@ func TestTranslateOidsInvalid(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("all failures reported", func(t *testing.T) {
+		bad := []string{"1..3", "UNKNOWN-MIB::wbTestValue.0", "WB-TEST-MIB::unknown.0"}
+		_, err := TranslateOids(append([]string{"WB-TEST-MIB::wbTestValue.0"}, bad...))
+		if err == nil {
+			t.Fatal("expected translation to fail")
+		}
+		for _, oid := range bad {
+			if !strings.Contains(err.Error(), fmt.Sprintf("error translating OID %q", oid)) {
+				t.Errorf("error = %v, want it to report %q", err, oid)
+			}
+		}
+	})
 }
 
 func TestTranslateOidsWithBrokenMib(t *testing.T) {

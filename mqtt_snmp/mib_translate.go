@@ -45,13 +45,19 @@ func TranslateOids(oids []string) (map[string]string, error) {
 	wbgo.Info.Printf("OID translation: %d numeric, %d symbolic OIDs, %d MIB modules loaded",
 		len(out), len(symbolic), len(modules.Modules()))
 
+	// Report all failed OIDs at once, not only the first one.
+	var errs []error
 	for _, value := range symbolic {
 		oid, err := modules.ResolveOID(value)
 		if err != nil {
-			return nil, fmt.Errorf("error translating OID %q: %w", value, err)
+			errs = append(errs, fmt.Errorf("error translating OID %q: %w", value, err))
+			continue
 		}
 		out[value] = "." + oid.String()
 		wbgo.Info.Printf("OID translation: %s -> %s", value, out[value])
+	}
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
 	}
 
 	return out, nil
@@ -63,9 +69,10 @@ func loadMibs(oids []string) (*mib.Mib, error) {
 		gomib.WithSystemPaths(),
 		gomib.WithResolverStrictness(mib.ResolverPermissive),
 	}
-	// Qualified OIDs (MODULE::name) need only their modules and imports.
-	// An unqualified name may be defined in any installed MIB, so in that
-	// case all of them are loaded.
+	// Qualified OIDs (MODULE::name) need only their modules and imports to
+	// be parsed and resolved. Every file in the MIB directories is still
+	// scanned to find out which module it defines. An unqualified name may
+	// be defined in any installed MIB, so in that case all of them are loaded.
 	if names, ok := qualifiedModules(oids); ok {
 		opts = append(opts, gomib.WithModules(names...))
 	}
