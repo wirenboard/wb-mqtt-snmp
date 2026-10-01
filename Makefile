@@ -45,13 +45,9 @@ test:
 	$(GOTEST) $(GO_FLAGS) $(GO_TEST_FLAGS) ./mqtt_snmp
 
 install:
-	mkdir -p $(DESTDIR)$(PREFIX)/share/wb-mqtt-snmp/
-	mkdir -p $(DESTDIR)/etc/wb-configs.d/
-
 	install -Dm0755 wb-mqtt-snmp -t $(DESTDIR)$(PREFIX)/bin
 	install -Dm0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf.sample
 	install -Dm0644 wb-mqtt-snmp.conf.sample $(DESTDIR)/etc/wb-mqtt-snmp.conf
 	install -Dm0644 wb-mqtt-snmp.schema.json -t $(DESTDIR)$(PREFIX)/share/wb-mqtt-confed/schemas
 	install -Dm0644 wb-mqtt-snmp.wbconfigs $(DESTDIR)/etc/wb-configs.d/19wb-mqtt-snmp
-
-	cp -rv ./templates $(DESTDIR)$(PREFIX)/share/wb-mqtt-snmp/templates
+	install -Dm0644 templates/*.json -t $(DESTDIR)$(PREFIX)/share/wb-mqtt-snmp/templates

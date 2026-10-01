@@ -1,0 +1,7 @@
+WB-TEST-ROOT-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS enterprises FROM SNMPv2-SMI;
+
+wbTestRoot OBJECT IDENTIFIER ::= { enterprises 60000 }
+
+END

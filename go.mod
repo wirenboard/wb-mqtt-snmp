@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/alouca/gologger v0.0.0-20120904114645-7d4b7291de9c
 	github.com/contactless/wbgo v0.0.9
+	github.com/golangsnmp/gomib v0.13.2
 	github.com/wirenboard/gosnmp v0.0.0-20260326145540-e9112d85831d
 )
 

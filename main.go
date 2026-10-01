@@ -62,7 +62,8 @@ func main() {
 
 	// translate OIDs
 	if err = m.TranslateOidsInDaemonConfig(cfg); err != nil {
-		wbgo.Error.Fatalf("error translating OIDs: %s", err)
+		wbgo.Error.Printf("error translating OIDs: %s", err)
+		os.Exit(6) // EXIT_NOTCONFIGURED, see https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Process_Exit_Codes
 	}
 
 	// wbgo.Debug.Printf("Config structure: %#v\n", *(cfg.Devices["snmp_test.net-snmp.org"]))

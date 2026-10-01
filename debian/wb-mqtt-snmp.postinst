@@ -1,0 +1,21 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = "configure" ] && [ -z "$2" ] && \
+    ! dpkg-query -W -f='${Status}' snmp-mibs-downloader 2>/dev/null | \
+        grep -q '^install ok installed$'; then
+    printf '%s\n' \
+        '' \
+        'Optional MIB support is not installed.' \
+        'To use standard MIB names, enable the non-free component in your APT sources,' \
+        'then run:' \
+        '' \
+        '  apt update' \
+        '  apt install snmp-mibs-downloader' \
+        ''
+fi
+
+#DEBHELPER#
+
+exit 0

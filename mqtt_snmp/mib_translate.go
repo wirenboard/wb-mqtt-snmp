@@ -1,41 +1,104 @@
 package mqtt_snmp
 
-// OID translate module
-// Using `snmptranslate` utility from NetSNMP
-
 import (
+	"context"
+	"errors"
 	"fmt"
-	"log"
-	"os/exec"
+	"slices"
 	"strings"
+
+	"github.com/contactless/wbgo"
+	"github.com/golangsnmp/gomib"
+	"github.com/golangsnmp/gomib/mib"
 )
 
-// Translates mixed OIDs/names to OIDs
-// using local `snmptranslate` utility and, so,
-// local installed MIBs
-func TranslateOids(oids []string) (out map[string]string, err error) {
-	var raw_out []byte
+// TranslateOids translates mixed numeric and symbolic OIDs using locally
+// installed MIBs. System paths include Debian's Net-SNMP and downloaded MIBs,
+// as well as directories configured through MIBDIRS and snmp.conf.
+func TranslateOids(oids []string) (map[string]string, error) {
+	out := make(map[string]string, len(oids))
+	var symbolic []string
 
-	// call snmptranslate
-	log.Printf("command to run: snmptranslate %s -On", strings.Join(oids, " "))
-	cmd := exec.Command("snmptranslate", append(oids, "-On")...)
-	raw_out, err = cmd.Output()
+	// Numeric OIDs do not require any installed MIBs.
+	for _, value := range oids {
+		oid, err := mib.ParseOID(value)
+		if err != nil {
+			symbolic = append(symbolic, value)
+			continue
+		}
+		// Preserve the numeric format produced by snmptranslate -On.
+		out[value] = "." + oid.String()
+	}
 
+	if len(symbolic) == 0 {
+		wbgo.Info.Printf("OID translation: %d numeric OIDs, no MIBs loaded", len(out))
+		return out, nil
+	}
+	// Sort for a stable log order.
+	slices.Sort(symbolic)
+	symbolic = slices.Compact(symbolic)
+
+	modules, err := loadMibs(symbolic)
 	if err != nil {
-		eout, _ := cmd.CombinedOutput()
-		err = fmt.Errorf("error translating OIDs: %s", string(eout))
-		return
+		return nil, err
+	}
+	wbgo.Info.Printf("OID translation: %d numeric, %d symbolic OIDs, %d MIB modules loaded",
+		len(out), len(symbolic), len(modules.Modules()))
+
+	for _, value := range symbolic {
+		oid, err := modules.ResolveOID(value)
+		if err != nil {
+			return nil, fmt.Errorf("error translating OID %q: %w", value, err)
+		}
+		out[value] = "." + oid.String()
+		wbgo.Info.Printf("OID translation: %s -> %s", value, out[value])
 	}
 
-	// parse output of snmptranslate
-	out = make(map[string]string)
-	split := strings.Split(string(raw_out), "\n\n")
+	return out, nil
+}
 
-	for i, value := range oids {
-		out[value] = strings.Trim(split[i], " \n")
+// loadMibs loads the MIBs needed to resolve the given symbolic OIDs.
+func loadMibs(oids []string) (*mib.Mib, error) {
+	opts := []gomib.LoadOption{
+		gomib.WithSystemPaths(),
+		gomib.WithResolverStrictness(mib.ResolverPermissive),
+	}
+	// Qualified OIDs (MODULE::name) need only their modules and imports.
+	// An unqualified name may be defined in any installed MIB, so in that
+	// case all of them are loaded.
+	if names, ok := qualifiedModules(oids); ok {
+		opts = append(opts, gomib.WithModules(names...))
 	}
 
-	return
+	modules, err := gomib.Load(context.Background(), opts...)
+	switch {
+	case err == nil:
+	case errors.Is(err, gomib.ErrDiagnosticThreshold):
+		// Like Net-SNMP, keep usable definitions even when other
+		// installed MIBs contain parsing or resolution errors.
+		wbgo.Info.Printf("MIB loading diagnostics: %v", err)
+	case errors.Is(err, gomib.ErrMissingModules):
+		// ResolveOID reports the missing module for the OID that needs it.
+	default:
+		return nil, fmt.Errorf("error loading MIBs: %w", err)
+	}
+	return modules, nil
+}
+
+// qualifiedModules returns the modules named by MODULE::name OIDs,
+// or false if any OID is unqualified.
+func qualifiedModules(oids []string) ([]string, bool) {
+	var names []string
+	for _, value := range oids {
+		name, _, ok := strings.Cut(value, "::")
+		if !ok {
+			return nil, false
+		}
+		if !slices.Contains(names, name) {
+			names = append(names, name)
+		}
+	}
+	return names, true
 }
 
 // Translate all OIDs in given configuration
@@ -49,7 +112,7 @@ func TranslateOidsInDaemonConfig(config *DaemonConfig) error {
 		}
 	}
 
-	oids_list := make([]string, len(oids_set), len(oids_set)+1) // +1 for TranslateOids (for not to waste time on reallocations)
+	oids_list := make([]string, len(oids_set))
 
 	i := 0
 	for key := range oids_set {
@@ -64,12 +127,9 @@ func TranslateOidsInDaemonConfig(config *DaemonConfig) error {
 	}
 
 	// translate OIDs in config
-	for dev_key, device := range config.Devices {
-		for ch_key := range device.Channels {
-			// TODO: it's a Go bullshit' workaround
-			tmp := config.Devices[dev_key].Channels[ch_key]
-			tmp.Oid = tmap[tmp.Oid]
-			config.Devices[dev_key].Channels[ch_key] = tmp
+	for _, device := range config.Devices {
+		for _, channel := range device.Channels {
+			channel.Oid = tmap[channel.Oid]
 		}
 	}
 

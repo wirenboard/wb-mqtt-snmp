@@ -151,7 +151,7 @@ func (s *ConfigParserSuite) createDefaultTemplates() (err error) {
 			{
 				"name": "channel1",
 				"oid": ".1.2.3.4.4",
-				"type": "value",
+				"control_type": "value",
 				"units": "U"
 			},
 			{
