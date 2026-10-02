@@ -8,7 +8,7 @@ import (
 
 	"github.com/contactless/wbgo"
 	"github.com/contactless/wbgo/testutils"
-	"github.com/wirenboard/gosnmp"
+	"github.com/gosnmp/gosnmp"
 )
 
 type ConfigParserSuite struct {
