@@ -73,11 +73,14 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 	case gosnmp.OctetString:
 		var d []byte
 		d, valid = v.Value.([]byte)
+		if !valid {
+			return
+		}
 		data = string(d)
 
 		// check also if value is a text string
 		// TODO: implement DISPLAY-HINT to convert compound values
-		valid = utf8.Valid([]byte(data))
+		valid = utf8.Valid(d)
 	case gosnmp.IPAddress:
 		data, valid = v.Value.(string)
 	case gosnmp.TimeTicks:
@@ -175,8 +178,6 @@ type SnmpModel struct {
 
 // SNMP model constructor
 func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig, start time.Time) (model *SnmpModel, err error) {
-	err = nil
-
 	model = &SnmpModel{
 		config: config,
 	}
@@ -198,10 +199,6 @@ func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig, start time.Time
 		}
 
 		i += 1
-	}
-
-	if err != nil {
-		return
 	}
 
 	// fill poll table
@@ -256,18 +253,14 @@ LPollWorker:
 			if e != nil {
 				wbgo.Error.Printf("failed to poll %s:%s: %s", dev.DevName, r.Channel.Name, e)
 				err <- PollError{Channel: r.Channel, Error: e.Error()}
+			} else if data, valid := ConvertSnmpValue(packet.Variables[0]); !valid {
+				// Get guarantees exactly one variable: one result or error per query.
+				errorMessage := fmt.Sprintf("failed to poll %s:%s: instance can't be converted to string", dev.DevName, r.Channel.Name)
+				wbgo.Error.Print(errorMessage)
+				err <- PollError{Channel: r.Channel, Error: errorMessage}
 			} else {
-				for i := range packet.Variables {
-					data, valid := ConvertSnmpValue(packet.Variables[i])
-					if !valid {
-						errorMessage := fmt.Sprintf("failed to poll %s:%s: instance can't be converted to string", dev.DevName, r.Channel.Name)
-						wbgo.Error.Print(errorMessage)
-						err <- PollError{Channel: r.Channel, Error: errorMessage}
-					} else {
-						wbgo.Debug.Printf("[poller %d] Send result for request %v: %v", id, r, data)
-						res <- PollResult{Channel: r.Channel, Data: r.Channel.Conv(data)}
-					}
-				}
+				wbgo.Debug.Printf("[poller %d] Send result for request %v: %v", id, r, data)
+				res <- PollResult{Channel: r.Channel, Data: r.Channel.Conv(data)}
 			}
 			done <- struct{}{}
 		case <-quit:

@@ -3,6 +3,7 @@ package mqtt_snmp
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -42,13 +43,11 @@ func newGoSNMPConfig(address, community string, version gosnmp.SnmpVersion, time
 	client := &gosnmp.GoSNMP{
 		Target:    target,
 		Port:      port,
-		Transport: "udp",
 		Community: community,
 		Version:   version,
 		Timeout:   time.Duration(timeout) * time.Second,
 		// Polling supplies the next attempt; preserve the old single-request timeout.
 		Retries: 0,
-		MaxOids: gosnmp.MaxOids,
 	}
 	if debug {
 		client.Logger = gosnmp.NewLogger(wbgo.Debug)
@@ -58,6 +57,14 @@ func newGoSNMPConfig(address, community string, version gosnmp.SnmpVersion, time
 
 // Keep the address[:port] configuration syntax.
 func snmpAddress(address string) (string, uint16, error) {
+	// A bare or bracketed IPv6 literal has no port.
+	literal := address
+	if strings.HasPrefix(address, "[") && strings.HasSuffix(address, "]") {
+		literal = address[1 : len(address)-1]
+	}
+	if ip, err := netip.ParseAddr(literal); err == nil && ip.Is6() {
+		return literal, 161, nil
+	}
 	if !strings.Contains(address, ":") {
 		if address != "" && !strings.ContainsAny(address, "[]") {
 			return address, 161, nil
@@ -66,11 +73,17 @@ func snmpAddress(address string) (string, uint16, error) {
 	}
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
-		return "", 0, fmt.Errorf("invalid SNMP address: %s", address)
+		return "", 0, fmt.Errorf("invalid SNMP address: %w", err)
+	}
+	if host == "" {
+		return "", 0, fmt.Errorf("invalid SNMP address %s: empty host", address)
 	}
 	n, err := net.LookupPort("udp", port)
-	if err != nil || n == 0 || host == "" {
-		return "", 0, fmt.Errorf("invalid SNMP address: %s", address)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid SNMP address %s: %w", address, err)
+	}
+	if n == 0 {
+		return "", 0, fmt.Errorf("invalid SNMP address %s: port must be 1-65535", address)
 	}
 	return host, uint16(n), nil
 }

@@ -20,6 +20,10 @@ func TestSnmpAddress(t *testing.T) {
 		{"[::1]:1161", "::1", 1161},
 		{"[2001:db8::1]:161", "2001:db8::1", 161},
 		{"[fe80::1%eth0]:161", "fe80::1%eth0", 161},
+		{"::1", "::1", 161},
+		{"[::1]", "::1", 161},
+		{"2001:db8::1", "2001:db8::1", 161},
+		{"fe80::1%eth0", "fe80::1%eth0", 161},
 	} {
 		t.Run(tt.address, func(t *testing.T) {
 			client, err := newGoSNMPConfig(tt.address, "private", gosnmp.Version2c, 7, false)
@@ -31,7 +35,7 @@ func TestSnmpAddress(t *testing.T) {
 			}
 		})
 	}
-	for _, address := range []string{"", "host:", "host:abc", "host:0", "host:65536", "host:-1", ":161", "::1", "[::1]", "[::1:161", "[::1]:0", "[]:161"} {
+	for _, address := range []string{"", "host:", "host:abc", "host:0", "host:65536", "host:-1", ":161", "[::1", "::1]", "[::1:161", "[::1]:0", "[]:161", "[]", "[host]", "[192.0.2.1]"} {
 		if _, _, err := snmpAddress(address); err == nil {
 			t.Errorf("accepted invalid address %q", address)
 		}
@@ -150,16 +154,16 @@ func TestSnmpDeviceRejectsErrorResponses(t *testing.T) {
 
 func TestSnmpModelClosesConnections(t *testing.T) {
 	for _, fail := range []bool{false, true} {
-		connection := &responseSNMP{}
-		calls := 0
+		var connections []*responseSNMP
 		factory := func(address, community string, version gosnmp.SnmpVersion, timeout int64, debug bool) (SnmpInterface, error) {
-			calls++
-			if fail && calls == 2 {
+			if fail && len(connections) == 2 {
 				return nil, fmt.Errorf("connection failed")
 			}
+			connection := &responseSNMP{}
+			connections = append(connections, connection)
 			return connection, nil
 		}
-		config := &DaemonConfig{Devices: map[string]*DeviceConfig{"first": {}, "second": {}}}
+		config := &DaemonConfig{Devices: map[string]*DeviceConfig{"first": {}, "second": {}, "third": {}}}
 		model, err := NewSnmpModel(factory, config, time.Now())
 		if fail {
 			if err == nil {
@@ -171,8 +175,18 @@ func TestSnmpModelClosesConnections(t *testing.T) {
 			}
 			model.Stop()
 		}
-		if !connection.closed {
-			t.Fatal("connection was not closed")
+		// The third connection fails in the error case.
+		want := 3
+		if fail {
+			want = 2
+		}
+		if len(connections) != want {
+			t.Fatalf("opened %d connections, want %d", len(connections), want)
+		}
+		for i, connection := range connections {
+			if !connection.closed {
+				t.Fatalf("connection %d was not closed", i)
+			}
 		}
 	}
 }

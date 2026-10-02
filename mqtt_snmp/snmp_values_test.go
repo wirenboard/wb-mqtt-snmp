@@ -55,7 +55,7 @@ func TestConvertDecodedSnmpValues(t *testing.T) {
 }
 
 func TestConvertSnmpValueRejectsWrongTypes(t *testing.T) {
-	for _, typ := range []gosnmp.Asn1BER{gosnmp.Integer, gosnmp.Gauge32, gosnmp.Counter32, gosnmp.Counter64, gosnmp.Uinteger32, gosnmp.IPAddress, gosnmp.TimeTicks} {
+	for _, typ := range []gosnmp.Asn1BER{gosnmp.Integer, gosnmp.Gauge32, gosnmp.Counter32, gosnmp.Counter64, gosnmp.Uinteger32, gosnmp.OctetString, gosnmp.IPAddress, gosnmp.TimeTicks} {
 		if _, valid := ConvertSnmpValue(gosnmp.SnmpPDU{Type: typ, Value: struct{}{}}); valid {
 			t.Errorf("accepted incorrect value type for %s", typ)
 		}

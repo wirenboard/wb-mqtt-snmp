@@ -531,6 +531,9 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]any) error {
 	if err := copyString(&devEntry, "address", &(d.Address), true); err != nil {
 		return err
 	}
+	if _, _, err := snmpAddress(d.Address); err != nil {
+		return err
+	}
 
 	if err := copyString(&devEntry, "community", &(d.Community), false); err != nil {
 		return err

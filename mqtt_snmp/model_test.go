@@ -522,7 +522,6 @@ func (m *ModelWorkersTest) TestModel() {
 
 	// Start model
 	m.model.Start()
-	defer m.model.Stop()
 
 	// Send a tick to model
 	timer.Tick()
@@ -560,6 +559,12 @@ func (m *ModelWorkersTest) TestModel() {
 
 	// wait for observer to flush and get no more events
 	m.NoError(obs.WaitForNoMessages(WaitTimeout))
+
+	// Stop closes connections once the workers have quit
+	m.model.Stop()
+	for _, dev := range m.model.devices {
+		m.True(dev.snmp.(*FakeSNMP).Closed, "connection of %s was not closed", dev.DevName)
+	}
 }
 
 func TestModelWorkers(t *testing.T) {
