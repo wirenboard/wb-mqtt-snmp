@@ -2,13 +2,12 @@ package mqtt_snmp
 
 import (
 	"fmt"
-	"net"
 	"sync"
 	"time"
 	"unicode/utf8"
 
 	"github.com/contactless/wbgo"
-	"github.com/wirenboard/gosnmp"
+	"github.com/gosnmp/gosnmp"
 )
 
 const (
@@ -41,10 +40,18 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 	valid = false
 
 	switch v.Type {
-	case gosnmp.Gauge32:
-		fallthrough
-	case gosnmp.Counter32:
-		fallthrough
+	case gosnmp.Gauge32, gosnmp.Counter32:
+		var d uint
+		d, valid = v.Value.(uint)
+		if valid {
+			data = fmt.Sprintf("%d", d)
+		}
+	case gosnmp.Uinteger32:
+		var d uint32
+		d, valid = v.Value.(uint32)
+		if valid {
+			data = fmt.Sprintf("%d", d)
+		}
 	case gosnmp.Counter64:
 		var d uint64
 		d, valid = v.Value.(uint64)
@@ -55,8 +62,6 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 		valid = true
 
 	case gosnmp.Integer:
-		fallthrough
-	case gosnmp.Uinteger32:
 		var d int
 		d, valid = v.Value.(int)
 		if !valid {
@@ -66,26 +71,25 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 		valid = true
 
 	case gosnmp.OctetString:
-		data, valid = v.Value.(string)
+		var d []byte
+		d, valid = v.Value.([]byte)
+		if !valid {
+			return
+		}
+		data = string(d)
 
 		// check also if value is a text string
 		// TODO: implement DISPLAY-HINT to convert compound values
-		valid = utf8.Valid([]byte(data))
-	case gosnmp.IpAddress:
-		var d net.IP
-		d, valid = v.Value.(net.IP)
-		if !valid {
-			return
-		}
-		data = d.String()
-		valid = true
+		valid = utf8.Valid(d)
+	case gosnmp.IPAddress:
+		data, valid = v.Value.(string)
 	case gosnmp.TimeTicks:
-		var d uint64
-		d, valid = v.Value.(uint64)
+		var d uint32
+		d, valid = v.Value.(uint32)
 		if !valid {
 			return
 		}
-		data = fmt.Sprintf("%s", time.Duration(d*10)*time.Millisecond)
+		data = fmt.Sprintf("%s", time.Duration(d)*10*time.Millisecond)
 		valid = true
 	}
 
@@ -113,7 +117,31 @@ func newSnmpDevice(snmpFactory SnmpFactory, config *DeviceConfig, debug bool) (d
 func (d *SnmpDevice) Get(oid string) (*gosnmp.SnmpPacket, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	return d.snmp.Get(oid)
+	packet, err := d.snmp.Get([]string{oid})
+	if err != nil {
+		return nil, err
+	}
+	if packet == nil {
+		return nil, fmt.Errorf("empty SNMP response")
+	}
+	if packet.Error != gosnmp.NoError {
+		return nil, fmt.Errorf("SNMP error: %s (index %d)", packet.Error, packet.ErrorIndex)
+	}
+	// Each poll must produce exactly one result or error for the poll timer.
+	if packet.PDUType != gosnmp.GetResponse || len(packet.Variables) != 1 {
+		return nil, fmt.Errorf("unexpected SNMP response: %s with %d variables", packet.PDUType, len(packet.Variables))
+	}
+	switch packet.Variables[0].Type {
+	case gosnmp.NoSuchObject, gosnmp.NoSuchInstance, gosnmp.EndOfMibView:
+		return nil, fmt.Errorf("SNMP exception for %s: %s", oid, packet.Variables[0].Type)
+	}
+	return packet, nil
+}
+
+func (d *SnmpDevice) Close() error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	return d.snmp.Close()
 }
 
 // TODO: receive values from MQTT and send it to SNMP?
@@ -150,8 +178,6 @@ type SnmpModel struct {
 
 // SNMP model constructor
 func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig, start time.Time) (model *SnmpModel, err error) {
-	err = nil
-
 	model = &SnmpModel{
 		config: config,
 	}
@@ -162,7 +188,10 @@ func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig, start time.Time
 	i := 0
 	for dev := range model.config.Devices {
 		if model.devices[i], err = newSnmpDevice(snmpFactory, model.config.Devices[dev], config.Debug); err != nil {
-			wbgo.Error.Fatalf("can't create SNMP device: %s", err)
+			for _, device := range model.devices[:i] {
+				_ = device.Close()
+			}
+			return nil, fmt.Errorf("can't create SNMP device %s: %w", dev, err)
 		}
 
 		for ch := range model.config.Devices[dev].Channels {
@@ -170,10 +199,6 @@ func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig, start time.Time
 		}
 
 		i += 1
-	}
-
-	if err != nil {
-		return
 	}
 
 	// fill poll table
@@ -228,18 +253,14 @@ LPollWorker:
 			if e != nil {
 				wbgo.Error.Printf("failed to poll %s:%s: %s", dev.DevName, r.Channel.Name, e)
 				err <- PollError{Channel: r.Channel, Error: e.Error()}
+			} else if data, valid := ConvertSnmpValue(packet.Variables[0]); !valid {
+				// Get guarantees exactly one variable: one result or error per query.
+				errorMessage := fmt.Sprintf("failed to poll %s:%s: instance can't be converted to string", dev.DevName, r.Channel.Name)
+				wbgo.Error.Print(errorMessage)
+				err <- PollError{Channel: r.Channel, Error: errorMessage}
 			} else {
-				for i := range packet.Variables {
-					data, valid := ConvertSnmpValue(packet.Variables[i])
-					if !valid {
-						errorMessage := fmt.Sprintf("failed to poll %s:%s: instance can't be converted to string", dev.DevName, r.Channel.Name)
-						wbgo.Error.Print(errorMessage)
-						err <- PollError{Channel: r.Channel, Error: errorMessage}
-					} else {
-						wbgo.Debug.Printf("[poller %d] Send result for request %v: %v", id, r, data)
-						res <- PollResult{Channel: r.Channel, Data: r.Channel.Conv(data)}
-					}
-				}
+				wbgo.Debug.Printf("[poller %d] Send result for request %v: %v", id, r, data)
+				res <- PollResult{Channel: r.Channel, Data: r.Channel.Conv(data)}
 			}
 			done <- struct{}{}
 		case <-quit:
@@ -436,6 +457,12 @@ func (m *SnmpModel) Stop() {
 			pubDone++
 		case <-m.pollTimerDoneChannel:
 			pollTimerDone++
+		}
+	}
+
+	for _, device := range m.devices {
+		if err := device.Close(); err != nil {
+			wbgo.Error.Printf("can't close SNMP device %s: %s", device.DevName, err)
 		}
 	}
 

@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/contactless/wbgo"
-	"github.com/wirenboard/gosnmp"
+	"github.com/gosnmp/gosnmp"
 )
 
 const (
@@ -277,7 +277,7 @@ func copySnmpVersion(fromMap *map[string]any, key string, to *gosnmp.SnmpVersion
 				return fmt.Errorf("SNMP version must be either 1 or 2c, %s given", val)
 			}
 		} else {
-			return fmt.Errorf("%s must be int, but %T given", key, entry)
+			return fmt.Errorf("%s must be string, but %T given", key, entry)
 		}
 	} else {
 		if required {
@@ -529,6 +529,9 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]any) error {
 	// insert entries in a hard way
 	// address field is required
 	if err := copyString(&devEntry, "address", &(d.Address), true); err != nil {
+		return err
+	}
+	if _, _, err := snmpAddress(d.Address); err != nil {
 		return err
 	}
 

@@ -12,7 +12,7 @@ const (
 func NewSnmpDriver(config *DaemonConfig, broker string) (*wbgo.Driver, error) {
 	model, err := NewSnmpModel(NewGoSNMP, config, time.Now())
 	if err != nil {
-		wbgo.Error.Fatal(err)
+		return nil, err
 	}
 
 	driver := wbgo.NewDriver(model, wbgo.NewPahoMQTTClient(broker, DRIVER_CLIENT_ID, false))

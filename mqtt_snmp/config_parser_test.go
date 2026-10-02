@@ -1,6 +1,7 @@
 package mqtt_snmp
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -8,7 +9,7 @@ import (
 
 	"github.com/contactless/wbgo"
 	"github.com/contactless/wbgo/testutils"
-	"github.com/wirenboard/gosnmp"
+	"github.com/gosnmp/gosnmp"
 )
 
 type ConfigParserSuite struct {
@@ -481,6 +482,22 @@ func (s *ConfigParserSuite) TestAddressCollision() {
 
 	_, err = NewDaemonConfig(strings.NewReader(testConfig_2), ".")
 	s.NoError(err, "config parser fail on no device address collision")
+}
+
+// Fail on malformed address, so the daemon exits as not configured
+func (s *ConfigParserSuite) TestInvalidAddress() {
+	testConfig := `{
+		"devices": [{
+			"address": "%s",
+			"device_type": "type2"
+		}]
+	}`
+
+	_, err := NewDaemonConfig(strings.NewReader(fmt.Sprintf(testConfig, "127.0.0.1:abc")), ".")
+	s.Error(err, "config parser doesn't fail on malformed device address")
+
+	_, err = NewDaemonConfig(strings.NewReader(fmt.Sprintf(testConfig, "127.0.0.1:1161")), ".")
+	s.NoError(err, "config parser fail on device address with port")
 }
 
 // Test channel names collision

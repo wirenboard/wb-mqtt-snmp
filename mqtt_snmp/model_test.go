@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/contactless/wbgo"
 	"github.com/contactless/wbgo/testutils"
-	"github.com/wirenboard/gosnmp"
+	"github.com/gosnmp/gosnmp"
 	"strings"
 	"sync"
 	"testing"
@@ -120,9 +120,14 @@ type FakeSNMP struct {
 	Address, Community string
 	Version            gosnmp.SnmpVersion
 	Timeout            int64
+	Closed             bool
 }
 
-func (snmp *FakeSNMP) Get(oid string) (packet *gosnmp.SnmpPacket, err error) {
+func (snmp *FakeSNMP) Get(oids []string) (packet *gosnmp.SnmpPacket, err error) {
+	if len(oids) != 1 {
+		return nil, fmt.Errorf("expected exactly one OID")
+	}
+	oid := oids[0]
 	if pkg, ok := fakeSNMPMessages[snmp.Address+"@"+snmp.Community+"@"+oid]; ok {
 		packet = pkg
 		err = nil
@@ -134,11 +139,16 @@ func (snmp *FakeSNMP) Get(oid string) (packet *gosnmp.SnmpPacket, err error) {
 	}
 }
 
+func (snmp *FakeSNMP) Close() error {
+	snmp.Closed = true
+	return nil
+}
+
 func InsertFakeSNMPMessage(key, value string) {
 	fakeSNMPMessages[key] = &gosnmp.SnmpPacket{
 		Version:        gosnmp.Version2c,
 		Community:      "",
-		RequestType:    gosnmp.GetResponse,
+		PDUType:        gosnmp.GetResponse,
 		RequestID:      0,
 		Error:          0,
 		ErrorIndex:     0,
@@ -148,7 +158,7 @@ func InsertFakeSNMPMessage(key, value string) {
 			gosnmp.SnmpPDU{
 				Name:  strings.Split(key, "@")[2],
 				Type:  gosnmp.OctetString,
-				Value: value,
+				Value: []byte(value),
 			},
 		},
 	}
@@ -512,7 +522,13 @@ func (m *ModelWorkersTest) TestModel() {
 
 	// Start model
 	m.model.Start()
-	defer m.model.Stop()
+	defer func() {
+		// Stop closes connections once the workers have quit
+		m.model.Stop()
+		for _, dev := range m.model.devices {
+			m.True(dev.snmp.(*FakeSNMP).Closed, "connection of %s was not closed", dev.DevName)
+		}
+	}()
 
 	// Send a tick to model
 	timer.Tick()

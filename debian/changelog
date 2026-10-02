@@ -1,3 +1,9 @@
+wb-mqtt-snmp (1.8.0) stable; urgency=medium
+
+  * Update gosnmp
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Fri, 02 Oct 2026 10:00:00 +0400
+
 wb-mqtt-snmp (1.7.0) stable; urgency=medium
 
   * Replace snmptranslate with built-in MIB translation using gomib
