@@ -26,7 +26,9 @@ func TestSnmpAddress(t *testing.T) {
 		{"fe80::1%eth0", "fe80::1%eth0", 161},
 	} {
 		t.Run(tt.address, func(t *testing.T) {
-			client, err := newGoSNMPConfig(tt.address, "private", gosnmp.Version2c, 7, false)
+			config := NewEmptyDeviceConfig()
+			config.Address, config.Community, config.SnmpTimeout = tt.address, "private", 7
+			client, err := newGoSNMPConfig(config, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -46,9 +48,14 @@ func TestSnmpGetOverUDP(t *testing.T) {
 	for _, tt := range []struct {
 		name    string
 		version gosnmp.SnmpVersion
+		v3      SnmpV3Config
 	}{
-		{"v1", gosnmp.Version1},
-		{"v2c", gosnmp.Version2c},
+		{"v1", gosnmp.Version1, SnmpV3Config{}},
+		{"v2c", gosnmp.Version2c, SnmpV3Config{}},
+		{"v3 noAuthNoPriv", gosnmp.Version3, SnmpV3Config{UserName: "monitor"}},
+		{"v3 authNoPriv", gosnmp.Version3, SnmpV3Config{UserName: "monitor", SecurityLevel: "authNoPriv", AuthProtocol: "MD5", AuthPassphrase: "auth-password"}},
+		{"v3 authPriv AES", gosnmp.Version3, SnmpV3Config{UserName: "monitor", SecurityLevel: "authPriv", AuthProtocol: "SHA256", AuthPassphrase: "auth-password", PrivProtocol: "AES", PrivPassphrase: "priv-password", ContextName: "test-context"}},
+		{"v3 authPriv DES", gosnmp.Version3, SnmpV3Config{UserName: "monitor", SecurityLevel: "authPriv", AuthProtocol: "SHA", AuthPassphrase: "auth-password", PrivProtocol: "DES", PrivPassphrase: "priv-password"}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			listener, err := net.ListenPacket("udp4", "127.0.0.1:0")
@@ -61,7 +68,7 @@ func TestSnmpGetOverUDP(t *testing.T) {
 			}
 			config := NewEmptyDeviceConfig()
 			config.Address, config.Community = listener.LocalAddr().String(), "private"
-			config.SnmpVersion, config.SnmpTimeout = tt.version, 2
+			config.SnmpVersion, config.SnmpV3, config.SnmpTimeout = tt.version, tt.v3, 2
 			const oid = ".1.3.6.1.2.1.1.1.0"
 			done := make(chan error, 1)
 			go func() { done <- serveSnmpGet(listener, config, oid) }()
@@ -90,17 +97,23 @@ func TestSnmpGetOverUDP(t *testing.T) {
 	}
 }
 
-// A local SNMP peer exercises GET request and response encoding on the wire.
+// A local SNMP peer exercises GET encoding, v3 engine discovery and USM on the wire.
 func serveSnmpGet(conn net.PacketConn, config *DeviceConfig, oid string) error {
-	peer, err := newGoSNMPConfig(config.Address, config.Community, config.SnmpVersion, int64(config.SnmpTimeout), false)
+	peer, err := newGoSNMPConfig(config, false)
 	if err != nil {
 		return err
+	}
+	if config.SnmpVersion == gosnmp.Version3 {
+		if discoveryErr := serveSnmpDiscovery(conn, peer.SecurityParameters.(*gosnmp.UsmSecurityParameters)); discoveryErr != nil {
+			return discoveryErr
+		}
 	}
 	buffer := make([]byte, 65535)
 	n, addr, err := conn.ReadFrom(buffer)
 	if err != nil {
 		return err
 	}
+	// UnmarshalTrap also verifies authentication, unlike SnmpDecodePacket.
 	request, err := peer.UnmarshalTrap(buffer[:n], false)
 	if err != nil {
 		return err
@@ -108,10 +121,15 @@ func serveSnmpGet(conn net.PacketConn, config *DeviceConfig, oid string) error {
 	if request.Version != config.SnmpVersion || request.PDUType != gosnmp.GetRequest || len(request.Variables) != 1 || request.Variables[0].Name != oid {
 		return fmt.Errorf("unexpected GET request")
 	}
-	if request.Community != config.Community {
+	if config.SnmpVersion == gosnmp.Version3 {
+		if request.ContextName != config.SnmpV3.ContextName || request.SecurityParameters.(*gosnmp.UsmSecurityParameters).UserName != config.SnmpV3.UserName || request.MsgFlags&gosnmp.AuthPriv != peer.MsgFlags {
+			return fmt.Errorf("incorrect USM or context settings")
+		}
+	} else if request.Community != config.Community {
 		return fmt.Errorf("incorrect community")
 	}
 	request.PDUType = gosnmp.GetResponse
+	request.MsgFlags &^= gosnmp.Reportable
 	request.Variables[0].Type, request.Variables[0].Value = gosnmp.OctetString, []byte("test device")
 	wire, err := request.MarshalMsg()
 	if err != nil {
@@ -119,6 +137,42 @@ func serveSnmpGet(conn net.PacketConn, config *DeviceConfig, oid string) error {
 	}
 	_, err = conn.WriteTo(wire, addr)
 	return err
+}
+
+func serveSnmpDiscovery(conn net.PacketConn, security *gosnmp.UsmSecurityParameters) error {
+	buffer := make([]byte, 65535)
+	n, addr, err := conn.ReadFrom(buffer)
+	if err != nil {
+		return fmt.Errorf("read discovery request: %w", err)
+	}
+	decoder := &gosnmp.GoSNMP{}
+	discovery, err := decoder.SnmpDecodePacket(buffer[:n])
+	if err != nil {
+		return fmt.Errorf("decode discovery request: %w", err)
+	}
+	if discovery.Version != gosnmp.Version3 || discovery.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthoritativeEngineID != "" {
+		return fmt.Errorf("expected engine discovery")
+	}
+	security.AuthoritativeEngineID = "\x80\x00\x00\x00\x01test-engine"
+	security.AuthoritativeEngineBoots, security.AuthoritativeEngineTime = 1, 1
+	if err = security.InitSecurityKeys(); err != nil {
+		return fmt.Errorf("initialize security keys: %w", err)
+	}
+	discovery.PDUType = gosnmp.Report
+	discovery.MsgFlags = gosnmp.NoAuthNoPriv
+	discovery.SecurityParameters = &gosnmp.UsmSecurityParameters{
+		AuthoritativeEngineID:    security.AuthoritativeEngineID,
+		AuthoritativeEngineBoots: 1, AuthoritativeEngineTime: 1,
+	}
+	discovery.Variables = []gosnmp.SnmpPDU{{Name: ".1.3.6.1.6.3.15.1.1.4.0", Type: gosnmp.Counter32, Value: uint32(1)}}
+	wire, err := discovery.MarshalMsg()
+	if err != nil {
+		return fmt.Errorf("encode discovery response: %w", err)
+	}
+	if _, err = conn.WriteTo(wire, addr); err != nil {
+		return fmt.Errorf("send discovery response: %w", err)
+	}
+	return nil
 }
 
 type responseSNMP struct {
@@ -139,6 +193,7 @@ func TestSnmpDeviceRejectsErrorResponses(t *testing.T) {
 		{"multiple variables", &gosnmp.SnmpPacket{PDUType: gosnmp.GetResponse, Variables: make([]gosnmp.SnmpPDU, 2)}},
 		{"v1 error", &gosnmp.SnmpPacket{PDUType: gosnmp.GetResponse, Error: gosnmp.NoSuchName, ErrorIndex: 1}},
 		{"unexpected PDU type", &gosnmp.SnmpPacket{PDUType: gosnmp.GetRequest, Variables: []gosnmp.SnmpPDU{{Type: gosnmp.Counter32, Value: uint(1)}}}},
+		{"report", &gosnmp.SnmpPacket{PDUType: gosnmp.Report, Variables: []gosnmp.SnmpPDU{{Type: gosnmp.Counter32, Value: uint(1)}}}},
 		{"missing object", &gosnmp.SnmpPacket{PDUType: gosnmp.GetResponse, Variables: []gosnmp.SnmpPDU{{Type: gosnmp.NoSuchObject}}}},
 		{"missing instance", &gosnmp.SnmpPacket{PDUType: gosnmp.GetResponse, Variables: []gosnmp.SnmpPDU{{Type: gosnmp.NoSuchInstance}}}},
 		{"end of MIB", &gosnmp.SnmpPacket{PDUType: gosnmp.GetResponse, Variables: []gosnmp.SnmpPDU{{Type: gosnmp.EndOfMibView}}}},
@@ -155,7 +210,7 @@ func TestSnmpDeviceRejectsErrorResponses(t *testing.T) {
 func TestSnmpModelClosesConnections(t *testing.T) {
 	for _, fail := range []bool{false, true} {
 		var connections []*responseSNMP
-		factory := func(address, community string, version gosnmp.SnmpVersion, timeout int64, debug bool) (SnmpInterface, error) {
+		factory := func(config *DeviceConfig, debug bool) (SnmpInterface, error) {
 			if fail && len(connections) == 2 {
 				return nil, fmt.Errorf("connection failed")
 			}

@@ -1,7 +1,9 @@
 package mqtt_snmp
 
 import (
+	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"reflect"
 	"strings"
@@ -66,6 +68,7 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 			dvalue.DeviceType != b_dvalue.DeviceType ||
 			dvalue.Id != b_dvalue.Id ||
 			dvalue.Community != b_dvalue.Community ||
+			dvalue.SnmpV3 != b_dvalue.SnmpV3 ||
 			dvalue.SnmpTimeout != b_dvalue.SnmpTimeout ||
 			dvalue.SnmpVersion != b_dvalue.SnmpVersion {
 			if verbose {
@@ -482,6 +485,52 @@ func (s *ConfigParserSuite) TestAddressCollision() {
 
 	_, err = NewDaemonConfig(strings.NewReader(testConfig_2), ".")
 	s.NoError(err, "config parser fail on no device address collision")
+
+	// SNMPv3 devices on one address are told apart by user name, community is ignored
+	testConfig3 := `{
+		"devices": [
+		{
+			"address": "127.0.0.1",
+			"device_type": "type2",
+			"snmp_version": "3",
+			"snmp_user": "foo"
+		},
+		{
+			"address": "127.0.0.1",
+			"device_type": "type2",
+			"snmp_version": "3",
+			"snmp_user": "bar"
+		}
+		]
+	}`
+
+	config, err := NewDaemonConfig(strings.NewReader(testConfig3), ".")
+	s.Require().NoError(err, "config parser fail on SNMPv3 devices with different users")
+	_, foo := config.Devices["snmp_127.0.0.1_foo"]
+	_, bar := config.Devices["snmp_127.0.0.1_bar"]
+	s.True(foo && bar, "SNMPv3 device IDs are not generated from user names")
+
+	testConfig4 := `{
+		"devices": [
+		{
+			"address": "127.0.0.1",
+			"community": "foo",
+			"device_type": "type2",
+			"snmp_version": "3",
+			"snmp_user": "monitor"
+		},
+		{
+			"address": "127.0.0.1",
+			"community": "bar",
+			"device_type": "type2",
+			"snmp_version": "3",
+			"snmp_user": "monitor"
+		}
+		]
+	}`
+
+	_, err = NewDaemonConfig(strings.NewReader(testConfig4), ".")
+	s.Error(err, "config parser doesn't fail on SNMPv3 devices with the same user")
 }
 
 // Fail on malformed address, so the daemon exits as not configured
@@ -573,4 +622,255 @@ func TestConfigParser(t *testing.T) {
 	defer s.TearDownTestFixture(t)
 
 	testutils.RunSuites(t, s)
+}
+
+func TestSnmpVersions(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		fields  string
+		version gosnmp.SnmpVersion
+		id      string
+		err     string
+	}{
+		{"default", "", gosnmp.Version2c, "snmp_127.0.0.1", ""},
+		{"v1", `"snmp_version":"1",`, gosnmp.Version1, "snmp_127.0.0.1", ""},
+		{"v2c", `"snmp_version":"2c",`, gosnmp.Version2c, "snmp_127.0.0.1", ""},
+		{"v3", `"snmp_version":"3","snmp_user":"monitor",`, gosnmp.Version3, "snmp_127.0.0.1_monitor", ""},
+		{"unknown", `"snmp_version":"4",`, 0, "", "SNMP version must be"},
+		{"number", `"snmp_version":3,`, 0, "", "snmp_version must be string"},
+		{"null", `"snmp_version":null,`, 0, "", "snmp_version must be string"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var config DaemonConfig
+			err := json.Unmarshal([]byte(`{"devices":[{`+tt.fields+`"address":"127.0.0.1","channels":[{"name":"test","oid":".1.3.6.1.2.1.1.1.0"}]}]}`), &config)
+			if tt.err != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.err) {
+					t.Fatalf("expected %q, got %v", tt.err, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			device, ok := config.Devices[tt.id]
+			if !ok {
+				t.Fatalf("device %q not found", tt.id)
+			}
+			if device.SnmpVersion != tt.version {
+				t.Fatalf("version = %v, want %v", device.SnmpVersion, tt.version)
+			}
+		})
+	}
+}
+
+func TestSnmpTimeout(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		fields  string
+		timeout int
+	}{
+		{"default", "", DefaultSnmpTimeout},
+		{"explicit", `"snmp_timeout":7,`, 7},
+		{"zero", `"snmp_timeout":0,`, DefaultSnmpTimeout},
+		{"negative", `"snmp_timeout":-1,`, DefaultSnmpTimeout},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var config DaemonConfig
+			err := json.Unmarshal([]byte(`{"devices":[{`+tt.fields+`"address":"127.0.0.1","channels":[{"name":"test","oid":".1.3.6.1.2.1.1.1.0"}]}]}`), &config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := config.Devices["snmp_127.0.0.1"].SnmpTimeout; got != tt.timeout {
+				t.Fatalf("timeout = %v, want %v", got, tt.timeout)
+			}
+		})
+	}
+}
+
+func TestLegacySnmpConfigIgnoresV3Fields(t *testing.T) {
+	for _, version := range []string{"", "1", "2c"} {
+		t.Run("version="+version, func(t *testing.T) {
+			// These fields were previously unknown and ignored. They must not
+			// invalidate a community-based device, including a v3 template override.
+			device := map[string]any{
+				"address": "127.0.0.1", "community": "private",
+				"snmp_user": nil, "snmp_security_level": false,
+				"snmp_auth_protocol": 123, "snmp_auth_passphrase": nil,
+				"snmp_priv_protocol": []any{}, "snmp_priv_passphrase": nil,
+				"snmp_context_name": map[string]any{},
+				"channels":          []any{map[string]any{"name": "test", "oid": ".1.3.6.1.2.1.1.1.0"}},
+			}
+			if version != "" {
+				device["snmp_version"] = version
+			}
+			raw, err := json.Marshal(map[string]any{"devices": []any{device}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var config DaemonConfig
+			if err = json.Unmarshal(raw, &config); err != nil {
+				t.Fatal(err)
+			}
+			d := config.Devices["snmp_127.0.0.1_private"]
+			if d == nil || d.Name != "SNMP 127.0.0.1_private" || d.SnmpV3 != (SnmpV3Config{}) {
+				t.Fatal("legacy identity or credentials changed")
+			}
+			client, err := newGoSNMPConfig(d, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantVersion := gosnmp.Version2c
+			if version == "1" {
+				wantVersion = gosnmp.Version1
+			}
+			if client.Version != wantVersion || client.Community != "private" || client.SecurityParameters != nil {
+				t.Fatal("legacy session settings changed")
+			}
+		})
+	}
+}
+
+func TestSnmpTemplateVersionInheritance(t *testing.T) {
+	for _, tt := range []struct {
+		name            string
+		templateVersion string
+		override        string
+		wantVersion     gosnmp.SnmpVersion
+		wantCredential  string
+	}{
+		{"v1 inherited", "1", "", gosnmp.Version1, "private"},
+		{"v2c inherited", "2c", "", gosnmp.Version2c, "private"},
+		{"v3 inherited", "3", "", gosnmp.Version3, "monitor"},
+		{"v1 overridden", "1", "2c", gosnmp.Version2c, "private"},
+		{"v3 overridden", "3", "1", gosnmp.Version1, "private"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			config := DaemonConfig{
+				templates: deviceTemplatesStorage{templates: map[string]map[string]any{
+					"custom": {
+						"snmp_version": tt.templateVersion, "community": "private",
+						"snmp_user": "monitor", "snmp_security_level": "authPriv",
+						"snmp_auth_protocol": "SHA256", "snmp_auth_passphrase": "auth-password",
+						"snmp_priv_protocol": "AES", "snmp_priv_passphrase": "priv-password",
+						"channels": []any{map[string]any{"name": "test", "oid": ".1.3.6.1.2.1.1.1.0"}},
+					},
+				}},
+			}
+			device := map[string]any{"address": "127.0.0.1", "device_type": "custom"}
+			if tt.override != "" {
+				device["snmp_version"] = tt.override
+			}
+			raw, err := json.Marshal(map[string]any{"devices": []any{device}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = json.Unmarshal(raw, &config); err != nil {
+				t.Fatal(err)
+			}
+			d := config.Devices["snmp_127.0.0.1_"+tt.wantCredential]
+			if d == nil || d.SnmpVersion != tt.wantVersion || d.Community != "private" {
+				t.Fatal("incorrect template version, community or identity")
+			}
+			client, err := newGoSNMPConfig(d, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tt.wantVersion == gosnmp.Version3 {
+				if client.MsgFlags != gosnmp.AuthPriv || client.SecurityParameters.(*gosnmp.UsmSecurityParameters).AuthenticationPassphrase != "auth-password" {
+					t.Fatal("template security settings were overridden by defaults")
+				}
+			} else if client.SecurityParameters != nil {
+				t.Fatal("community-based session uses template USM credentials")
+			}
+		})
+	}
+}
+
+func TestSnmpV3Validation(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		fields map[string]any
+		err    string
+	}{
+		{"missing user", map[string]any{"snmp_user": ""}, "snmp_user"},
+		{"numeric user", map[string]any{"snmp_user": 123}, "snmp_user must be string"},
+		{"unknown level", map[string]any{"snmp_security_level": "invalid"}, "snmp_security_level"},
+		{"unknown auth", map[string]any{"snmp_auth_protocol": "invalid"}, "snmp_auth_protocol"},
+		{"unknown privacy", map[string]any{"snmp_priv_protocol": "invalid"}, "snmp_priv_protocol"},
+		{"missing auth", map[string]any{"snmp_security_level": "authNoPriv"}, "snmp_auth_protocol"},
+		{"missing auth password", map[string]any{"snmp_security_level": "authNoPriv", "snmp_auth_protocol": "SHA"}, "snmp_auth_passphrase"},
+		{"short auth password", map[string]any{"snmp_security_level": "authNoPriv", "snmp_auth_protocol": "SHA", "snmp_auth_passphrase": "short"}, "snmp_auth_passphrase"},
+		{"missing privacy", map[string]any{"snmp_security_level": "authPriv", "snmp_auth_protocol": "SHA", "snmp_auth_passphrase": "auth-password"}, "snmp_priv_protocol"},
+		{"missing privacy password", map[string]any{"snmp_security_level": "authPriv", "snmp_auth_protocol": "SHA", "snmp_auth_passphrase": "auth-password", "snmp_priv_protocol": "AES"}, "snmp_priv_passphrase"},
+		{"auth without level", map[string]any{"snmp_auth_protocol": "SHA", "snmp_auth_passphrase": "auth-password"}, "require authNoPriv or authPriv"},
+		{"privacy without auth", map[string]any{"snmp_priv_protocol": "AES"}, "require authPriv"},
+		{"privacy with authNoPriv", map[string]any{"snmp_security_level": "authNoPriv", "snmp_auth_protocol": "SHA", "snmp_auth_passphrase": "auth-password", "snmp_priv_protocol": "AES"}, "require authPriv"},
+		{"bad context type", map[string]any{"snmp_context_name": true}, "snmp_context_name must be string"},
+		{"noAuthNoPriv", map[string]any{}, ""},
+		{"explicit noAuthNoPriv", map[string]any{"snmp_security_level": "noAuthNoPriv", "snmp_auth_protocol": "NoAuth", "snmp_priv_protocol": "NoPriv"}, ""},
+		{"authNoPriv", map[string]any{"snmp_security_level": "authNoPriv", "snmp_auth_protocol": "MD5", "snmp_auth_passphrase": "auth-password"}, ""},
+		{"authPriv", map[string]any{"snmp_security_level": "authPriv", "snmp_auth_protocol": "SHA256", "snmp_auth_passphrase": "auth-password", "snmp_priv_protocol": "AES", "snmp_priv_passphrase": "priv-password"}, ""},
+		{"authPriv UTF-8", map[string]any{"snmp_security_level": "authPriv", "snmp_auth_protocol": "SHA256", "snmp_auth_passphrase": "тест", "snmp_priv_protocol": "AES", "snmp_priv_passphrase": "ключ"}, ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			device := map[string]any{
+				"address": "127.0.0.1", "snmp_version": "3", "snmp_user": "monitor",
+				"channels": []map[string]any{{"name": "test", "oid": ".1.3.6.1.2.1.1.1.0"}},
+			}
+			maps.Copy(device, tt.fields)
+			raw, err := json.Marshal(map[string]any{"devices": []any{device}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var config DaemonConfig
+			err = json.Unmarshal(raw, &config)
+			if tt.err == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), tt.err) {
+				t.Fatalf("expected %q, got %v", tt.err, err)
+			}
+			if err != nil && (strings.Contains(err.Error(), "auth-password") || strings.Contains(err.Error(), "priv-password")) {
+				t.Fatal("error includes a passphrase")
+			}
+		})
+	}
+}
+
+func TestSnmpV3TemplateOverride(t *testing.T) {
+	config := DaemonConfig{
+		templates: deviceTemplatesStorage{templates: map[string]map[string]any{
+			"secure": {
+				"snmp_version": "3", "snmp_user": "template-user",
+				"snmp_security_level": "authPriv", "snmp_auth_protocol": "SHA256",
+				"snmp_auth_passphrase": "template-auth", "snmp_priv_protocol": "AES",
+				"snmp_priv_passphrase": "template-priv", "snmp_context_name": "template-context",
+				"channels": []any{map[string]any{"name": "test", "oid": ".1.3.6.1.2.1.1.1.0"}},
+			},
+		}},
+	}
+	err := json.Unmarshal([]byte(`{"devices":[{"address":"127.0.0.1","device_type":"secure","snmp_user":"monitor","snmp_auth_passphrase":"device-auth","snmp_context_name":"device-context"}]}`), &config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := config.Devices["snmp_127.0.0.1_monitor"]
+	client, err := newGoSNMPConfig(d, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	security := client.SecurityParameters.(*gosnmp.UsmSecurityParameters)
+	if client.Version != gosnmp.Version3 || client.SecurityModel != gosnmp.UserSecurityModel || client.MsgFlags != gosnmp.AuthPriv || client.ContextName != "device-context" {
+		t.Fatal("incorrect SNMPv3 session settings")
+	}
+	if security.UserName != "monitor" || security.AuthenticationProtocol != gosnmp.SHA256 || security.AuthenticationPassphrase != "device-auth" || security.PrivacyProtocol != gosnmp.AES || security.PrivacyPassphrase != "template-priv" {
+		t.Fatal("incorrect SNMPv3 credentials after template override")
+	}
+	other, err := newGoSNMPConfig(d, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if other.SecurityParameters == client.SecurityParameters {
+		t.Fatal("SNMPv3 sessions share mutable security parameters")
+	}
 }

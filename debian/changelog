@@ -1,3 +1,9 @@
+wb-mqtt-snmp (1.9.0) stable; urgency=medium
+
+  * Add SNMPv3 support
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Fri, 02 Oct 2026 15:00:00 +0400
+
 wb-mqtt-snmp (1.8.0) stable; urgency=medium
 
   * Update gosnmp

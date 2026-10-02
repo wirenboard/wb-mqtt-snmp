@@ -164,13 +164,13 @@ func InsertFakeSNMPMessage(key, value string) {
 	}
 }
 
-func NewFakeSNMP(address, community string, version gosnmp.SnmpVersion, timeout int64, debug bool) (snmp SnmpInterface, err error) {
+func NewFakeSNMP(config *DeviceConfig, debug bool) (snmp SnmpInterface, err error) {
 	err = nil
 	s := &FakeSNMP{
-		Address:   address,
-		Community: community,
-		Version:   version,
-		Timeout:   timeout,
+		Address:   config.Address,
+		Community: config.Community,
+		Version:   config.SnmpVersion,
+		Timeout:   int64(config.SnmpTimeout),
 	}
 	snmp = s
 

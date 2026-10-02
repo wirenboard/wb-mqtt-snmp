@@ -98,7 +98,7 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 
 // Create new SNMP device instance from config tree
 func newSnmpDevice(snmpFactory SnmpFactory, config *DeviceConfig, debug bool) (device *SnmpDevice, err error) {
-	snmp, err := snmpFactory(config.Address, config.Community, config.SnmpVersion, int64(config.SnmpTimeout), debug)
+	snmp, err := snmpFactory(config, debug)
 	if err != nil {
 		return
 	}

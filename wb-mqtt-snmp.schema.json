@@ -74,9 +74,54 @@
         "snmp_version": {
           "type": "string",
           "title": "SNMP protocol version for device",
-          "enum": [ "1", "2c" ],
+          "enum": [ "1", "2c", "3" ],
           "default": "2c",
           "propertyOrder": 80
+        },
+        "snmp_user": {
+          "type": "string",
+          "title": "SNMPv3 user name",
+          "propertyOrder": 81
+        },
+        "snmp_security_level": {
+          "type": "string",
+          "title": "SNMPv3 security level",
+          "enum": [ "noAuthNoPriv", "authNoPriv", "authPriv" ],
+          "default": "noAuthNoPriv",
+          "propertyOrder": 82
+        },
+        "snmp_auth_protocol": {
+          "type": "string",
+          "title": "SNMPv3 authentication protocol",
+          "description": "Required for authNoPriv and authPriv",
+          "enum": [ "NoAuth", "MD5", "SHA", "SHA224", "SHA256", "SHA384", "SHA512" ],
+          "default": "NoAuth",
+          "propertyOrder": 83
+        },
+        "snmp_auth_passphrase": {
+          "type": "string",
+          "format": "password",
+          "title": "SNMPv3 authentication passphrase",
+          "propertyOrder": 84
+        },
+        "snmp_priv_protocol": {
+          "type": "string",
+          "title": "SNMPv3 privacy protocol",
+          "enum": [ "NoPriv", "DES", "AES", "AES192", "AES256", "AES192C", "AES256C" ],
+          "default": "NoPriv",
+          "propertyOrder": 85
+        },
+        "snmp_priv_passphrase": {
+          "type": "string",
+          "format": "password",
+          "title": "SNMPv3 privacy passphrase",
+          "propertyOrder": 86
+        },
+        "snmp_context_name": {
+          "type": "string",
+          "title": "SNMPv3 context name",
+          "default": "",
+          "propertyOrder": 87
         },
         "snmp_timeout": {
           "type": "integer",
@@ -247,6 +292,13 @@
       "SNMP object ID prefix (MIB name)": "Префикс идентификатора объекта SNMP (имя MIB)",
       "oid_prefix_description": "Общий префикс для имен в идентификаторах каналов (для SNMPv2-MIB::sysLocation.0 префикс - SNMPv2-MIB). Может быть переопределен путем записи OID в канал с префиксом и '::'",
       "SNMP protocol version for device": "Версия протокола SNMP для устройства",
+      "SNMPv3 user name": "Имя пользователя SNMPv3",
+      "SNMPv3 security level": "Уровень безопасности SNMPv3",
+      "SNMPv3 authentication protocol": "Протокол аутентификации SNMPv3",
+      "SNMPv3 authentication passphrase": "Пароль аутентификации SNMPv3",
+      "SNMPv3 privacy protocol": "Протокол шифрования SNMPv3",
+      "SNMPv3 privacy passphrase": "Пароль шифрования SNMPv3",
+      "SNMPv3 context name": "Имя контекста SNMPv3",
       "SNMP timeout (s)": "Таймаут SNMP (с)",
       "Desired default poll interval (ms)": "Желаемый интервал опроса по умолчанию (мс)",
       "poll_interval_description": "Задаёт общую продолжительность цикла опроса",
