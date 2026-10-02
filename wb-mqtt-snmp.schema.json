@@ -11,6 +11,30 @@
 
   "definitions": {
     "device": {
+      "title": "SNMP protocol version for device",
+      "_format": "wb-multiple",
+      "oneOf": [
+        { "$ref": "#/definitions/deviceDefault" },
+        { "$ref": "#/definitions/deviceV2c" },
+        { "$ref": "#/definitions/deviceV1" },
+        { "$ref": "#/definitions/deviceV3" }
+      ],
+      "options": {
+        "disable_collapse": true,
+        "disable_edit_json": true,
+        "keep_oneof_values": false,
+        "wb": {
+          "keep_properties": [
+            "enabled", "name", "id", "address", "device_type", "community", "oid_prefix",
+            "snmp_timeout", "poll_interval", "channels", "snmp_user",
+            "snmp_security_level", "snmp_auth_protocol", "snmp_auth_passphrase",
+            "snmp_priv_protocol", "snmp_priv_passphrase", "snmp_context_name"
+          ]
+        }
+      }
+    },
+
+    "deviceBase": {
       "type": "object",
       "title": "SNMP device",
 
@@ -58,25 +82,12 @@
           },
           "propertyOrder": 40
         },
-        "community": {
-          "type": "string",
-          "title": "SNMP community string",
-          "description": "password",
-          "propertyOrder": 60
-        },
         "oid_prefix": {
           "type": "string",
           "title": "SNMP object ID prefix (MIB name)",
           "description": "oid_prefix_description",
           "default": "",
           "propertyOrder": 70
-        },
-        "snmp_version": {
-          "type": "string",
-          "title": "SNMP protocol version for device",
-          "enum": [ "1", "2c" ],
-          "default": "2c",
-          "propertyOrder": 80
         },
         "snmp_timeout": {
           "type": "integer",
@@ -106,6 +117,227 @@
       },
       "required": ["address"],
       "defaultProperties": ["address", "device_type", "enabled"]
+    },
+
+    "communityDevice": {
+      "allOf": [
+        { "$ref": "#/definitions/deviceBase" }
+      ],
+      "properties": {
+        "community": {
+          "type": "string",
+          "title": "SNMP community string",
+          "description": "password",
+          "propertyOrder": 60
+        }
+      }
+    },
+
+    "snmpV3Fields": {
+      "properties": {
+        "snmp_user": {
+          "title": "SNMPv3 user name",
+          "propertyOrder": 81
+        },
+        "snmp_security_level": {
+          "title": "SNMPv3 security level",
+          "default": "noAuthNoPriv",
+          "propertyOrder": 82
+        },
+        "snmp_auth_protocol": {
+          "title": "SNMPv3 authentication protocol",
+          "description": "Required for authNoPriv and authPriv",
+          "default": "NoAuth",
+          "propertyOrder": 83
+        },
+        "snmp_auth_passphrase": {
+          "format": "password",
+          "title": "SNMPv3 authentication passphrase",
+          "description": "At least 8 bytes when authentication is enabled",
+          "propertyOrder": 84
+        },
+        "snmp_priv_protocol": {
+          "title": "SNMPv3 privacy protocol",
+          "default": "NoPriv",
+          "propertyOrder": 85
+        },
+        "snmp_priv_passphrase": {
+          "format": "password",
+          "title": "SNMPv3 privacy passphrase",
+          "description": "At least 8 bytes when privacy is enabled",
+          "propertyOrder": 86
+        },
+        "snmp_context_name": {
+          "title": "SNMPv3 context name",
+          "default": "",
+          "propertyOrder": 87
+        }
+      }
+    },
+
+    "deviceDefault": {
+      "title": "From template (default: SNMPv2c)",
+      "allOf": [
+        { "$ref": "#/definitions/communityDevice" },
+        { "$ref": "#/definitions/snmpV3Fields" }
+      ],
+      "not": { "required": ["snmp_version"] }
+    },
+
+    "deviceV2c": {
+      "title": "SNMPv2c",
+      "allOf": [
+        { "$ref": "#/definitions/communityDevice" }
+      ],
+      "properties": {
+        "snmp_version": {
+          "type": "string",
+          "title": "SNMP protocol version for device",
+          "enum": [ "2c" ],
+          "default": "2c",
+          "options": {
+            "hidden": true
+          },
+          "propertyOrder": 80
+        }
+      },
+      "required": ["snmp_version"],
+      "defaultProperties": ["address", "device_type", "enabled", "snmp_version"]
+    },
+
+    "deviceV1": {
+      "title": "SNMPv1",
+      "allOf": [
+        { "$ref": "#/definitions/communityDevice" }
+      ],
+      "properties": {
+        "snmp_version": {
+          "type": "string",
+          "title": "SNMP protocol version for device",
+          "enum": [ "1" ],
+          "default": "1",
+          "options": {
+            "hidden": true
+          },
+          "propertyOrder": 80
+        }
+      },
+      "required": ["snmp_version"],
+      "defaultProperties": ["address", "device_type", "enabled", "snmp_version"]
+    },
+
+    "snmpV3NoAuthNoPriv": {
+      "properties": {
+        "snmp_security_level": { "enum": [ "noAuthNoPriv" ] },
+        "snmp_auth_protocol": { "enum": [ "NoAuth" ] },
+        "snmp_auth_passphrase": { "maxLength": 0 },
+        "snmp_priv_protocol": { "enum": [ "NoPriv" ] },
+        "snmp_priv_passphrase": { "maxLength": 0 }
+      }
+    },
+
+    "snmpV3AuthNoPriv": {
+      "properties": {
+        "snmp_security_level": { "enum": [ "authNoPriv" ] },
+        "snmp_auth_protocol": { "not": { "enum": [ "NoAuth" ] } },
+        "snmp_auth_passphrase": { "minLength": 1 },
+        "snmp_priv_protocol": { "enum": [ "NoPriv" ] },
+        "snmp_priv_passphrase": { "maxLength": 0 }
+      }
+    },
+
+    "snmpV3AuthPriv": {
+      "properties": {
+        "snmp_security_level": { "enum": [ "authPriv" ] },
+        "snmp_auth_protocol": { "not": { "enum": [ "NoAuth" ] } },
+        "snmp_auth_passphrase": { "minLength": 1 },
+        "snmp_priv_protocol": { "not": { "enum": [ "NoPriv" ] } },
+        "snmp_priv_passphrase": { "minLength": 1 }
+      }
+    },
+
+    "deviceV3": {
+      "title": "SNMPv3",
+      "allOf": [
+        { "$ref": "#/definitions/deviceBase" },
+        { "$ref": "#/definitions/snmpV3Fields" }
+      ],
+      "properties": {
+        "snmp_version": {
+          "type": "string",
+          "title": "SNMP protocol version for device",
+          "enum": [ "3" ],
+          "default": "3",
+          "options": {
+            "hidden": true
+          },
+          "propertyOrder": 80
+        },
+        "snmp_user": {
+          "type": "string",
+          "minLength": 1
+        },
+        "snmp_security_level": {
+          "type": "string",
+          "enum": [ "noAuthNoPriv", "authNoPriv", "authPriv" ]
+        },
+        "snmp_auth_protocol": {
+          "type": "string",
+          "enum": [ "NoAuth", "MD5", "SHA", "SHA224", "SHA256", "SHA384", "SHA512" ]
+        },
+        "snmp_auth_passphrase": {
+          "type": "string"
+        },
+        "snmp_priv_protocol": {
+          "type": "string",
+          "enum": [ "NoPriv", "DES", "AES", "AES192", "AES256", "AES192C", "AES256C" ]
+        },
+        "snmp_priv_passphrase": {
+          "type": "string"
+        },
+        "snmp_context_name": {
+          "type": "string"
+        }
+      },
+      "required": ["snmp_version"],
+      "dependencies": {
+        "snmp_version": {
+          "anyOf": [
+            {
+              "required": ["device_type"],
+              "anyOf": [
+                { "$ref": "#/definitions/snmpV3NoAuthNoPriv" },
+                { "$ref": "#/definitions/snmpV3AuthNoPriv" },
+                { "$ref": "#/definitions/snmpV3AuthPriv" }
+              ]
+            },
+            {
+              "required": ["snmp_user"],
+              "oneOf": [
+                { "$ref": "#/definitions/snmpV3NoAuthNoPriv" },
+                {
+                  "allOf": [
+                    { "$ref": "#/definitions/snmpV3AuthNoPriv" }
+                  ],
+                  "required": ["snmp_security_level", "snmp_auth_protocol", "snmp_auth_passphrase"]
+                },
+                {
+                  "allOf": [
+                    { "$ref": "#/definitions/snmpV3AuthPriv" }
+                  ],
+                  "required": [
+                    "snmp_security_level", "snmp_auth_protocol", "snmp_auth_passphrase",
+                    "snmp_priv_protocol", "snmp_priv_passphrase"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "defaultProperties": [
+        "address", "device_type", "enabled", "snmp_version"
+      ]
     },
 
     "channel": {
@@ -247,6 +479,16 @@
       "SNMP object ID prefix (MIB name)": "Префикс идентификатора объекта SNMP (имя MIB)",
       "oid_prefix_description": "Общий префикс для имен в идентификаторах каналов (для SNMPv2-MIB::sysLocation.0 префикс - SNMPv2-MIB). Может быть переопределен путем записи OID в канал с префиксом и '::'",
       "SNMP protocol version for device": "Версия протокола SNMP для устройства",
+      "From template (default: SNMPv2c)": "Из шаблона (по умолчанию: SNMPv2c)",
+      "SNMPv3 user name": "Имя пользователя SNMPv3",
+      "SNMPv3 security level": "Уровень безопасности SNMPv3",
+      "SNMPv3 authentication protocol": "Протокол аутентификации SNMPv3",
+      "SNMPv3 authentication passphrase": "Пароль аутентификации SNMPv3",
+      "SNMPv3 privacy protocol": "Протокол шифрования SNMPv3",
+      "SNMPv3 privacy passphrase": "Пароль шифрования SNMPv3",
+      "At least 8 bytes when authentication is enabled": "Не менее 8 байт, если включена аутентификация",
+      "At least 8 bytes when privacy is enabled": "Не менее 8 байт, если включено шифрование",
+      "SNMPv3 context name": "Имя контекста SNMPv3",
       "SNMP timeout (s)": "Таймаут SNMP (с)",
       "Desired default poll interval (ms)": "Желаемый интервал опроса по умолчанию (мс)",
       "poll_interval_description": "Задаёт общую продолжительность цикла опроса",

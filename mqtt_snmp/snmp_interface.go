@@ -20,11 +20,11 @@ type SnmpInterface interface {
 }
 
 // SNMP interface factory type
-type SnmpFactory func(address, community string, version gosnmp.SnmpVersion, timeout int64, debug bool) (SnmpInterface, error)
+type SnmpFactory func(config *DeviceConfig, debug bool) (SnmpInterface, error)
 
 // NewGoSNMP configures and connects a per-device SNMP session.
-func NewGoSNMP(address, community string, version gosnmp.SnmpVersion, timeout int64, debug bool) (SnmpInterface, error) {
-	client, err := newGoSNMPConfig(address, community, version, timeout, debug)
+func NewGoSNMP(config *DeviceConfig, debug bool) (SnmpInterface, error) {
+	client, err := newGoSNMPConfig(config, debug)
 	if err != nil {
 		return nil, err
 	}
@@ -35,22 +35,32 @@ func NewGoSNMP(address, community string, version gosnmp.SnmpVersion, timeout in
 	return client, nil
 }
 
-func newGoSNMPConfig(address, community string, version gosnmp.SnmpVersion, timeout int64, debug bool) (*gosnmp.GoSNMP, error) {
-	target, port, err := snmpAddress(address)
+func newGoSNMPConfig(config *DeviceConfig, debug bool) (*gosnmp.GoSNMP, error) {
+	target, port, err := snmpAddress(config.Address)
 	if err != nil {
 		return nil, err
 	}
 	client := &gosnmp.GoSNMP{
 		Target:    target,
 		Port:      port,
-		Community: community,
-		Version:   version,
-		Timeout:   time.Duration(timeout) * time.Second,
+		Community: config.Community,
+		Version:   config.SnmpVersion,
+		Timeout:   time.Duration(config.SnmpTimeout) * time.Second,
 		// Polling supplies the next attempt; preserve the old single-request timeout.
 		Retries: 0,
 	}
 	if debug {
 		client.Logger = gosnmp.NewLogger(wbgo.Debug)
+	}
+	if config.SnmpVersion == gosnmp.Version3 {
+		flags, security, err := config.SnmpV3.securityParameters()
+		if err != nil {
+			return nil, err
+		}
+		client.MsgFlags = flags
+		client.SecurityModel = gosnmp.UserSecurityModel
+		client.SecurityParameters = security
+		client.ContextName = config.SnmpV3.ContextName
 	}
 	return client, nil
 }
