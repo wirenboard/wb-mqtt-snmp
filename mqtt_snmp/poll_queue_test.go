@@ -50,12 +50,12 @@ func (p *PollQueueTest) TestSubQueue() {
 	t := time.Date(2016, time.November, 1, 0, 0, 5, 0, time.UTC)
 
 	// check elements
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		// check pending check
 		p.Equal(q.IsTopPending(t), i <= 5)
 
 		elem, err := q.Pop()
-		p.NoError(err, "failed to get elem from queue")
+		p.Require().NoError(err, "failed to get elem from queue")
 		p.Equal(elem.Channel.Name, strconv.Itoa(i))
 	}
 
@@ -92,9 +92,9 @@ func (p *PollQueueTest) TestPollTable() {
 	pt.AddQueue(q3, 500)
 
 	// check next poll time
-	next_poll, err := pt.NextPollTime()
-	p.NoError(err, "failed to get next poll time")
-	p.Equal(next_poll, ar[0].Deadline)
+	nextPoll, err := pt.NextPollTime()
+	p.Require().NoError(err, "failed to get next poll time")
+	p.Equal(nextPoll, ar[0].Deadline)
 
 	// test first poll
 	c := make(chan PollQuery, 15)
@@ -103,16 +103,16 @@ func (p *PollQueueTest) TestPollTable() {
 	for i := 0; i < num; i++ {
 		query := <-c
 		p.Equal(query, ar[i])
-		p.NotEqual(i, 16)
+		p.NotEqual(16, i)
 	}
 
 	// check next poll time again
-	next_poll, err = pt.NextPollTime()
-	p.NoError(err, "failed to get next poll time")
-	p.Equal(next_poll, t.Add(100*time.Millisecond))
+	nextPoll, err = pt.NextPollTime()
+	p.Require().NoError(err, "failed to get next poll time")
+	p.Equal(nextPoll, t.Add(100*time.Millisecond))
 
 	// shift time for 160 ms, poll again
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		ar[i].Deadline = t.Add(100 * time.Millisecond)
 	}
 	t2 := t.Add(160 * time.Millisecond)
@@ -121,11 +121,11 @@ func (p *PollQueueTest) TestPollTable() {
 	for i := 0; i < num; i++ {
 		query := <-c
 		p.Equal(query, ar[i])
-		p.NotEqual(i, 6)
+		p.NotEqual(6, i)
 	}
 
 	// shift time for 160 ms again, poll
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		ar[i].Deadline = t2.Add(100 * time.Millisecond)
 	}
 	for i := 5; i < 10; i++ {
@@ -137,7 +137,7 @@ func (p *PollQueueTest) TestPollTable() {
 	for i := 0; i < num; i++ {
 		query := <-c
 		p.Equal(query, ar[i])
-		p.NotEqual(i, 11)
+		p.NotEqual(11, i)
 	}
 }
 

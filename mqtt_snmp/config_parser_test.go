@@ -48,87 +48,100 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 
 	// check devices map
 	for dkey, dvalue := range a.Devices {
-		var b_dvalue *DeviceConfig
-		var ok bool
-
-		if b_dvalue, ok = b.Devices[dkey]; !ok {
+		bDvalue, ok := b.Devices[dkey]
+		if !ok {
 			wbgo.Debug.Printf("device %s doesn't exist in another", dkey)
 			return false
 		}
-
-		if len(a.Devices[dkey].Channels) != len(b.Devices[dkey].Channels) {
-			wbgo.Debug.Printf("device %s number of channel mismatch", dkey)
-			wbgo.Debug.Printf("%d vs %d", len(a.Devices[dkey].Channels), len(b.Devices[dkey].Channels))
+		if !deviceConfigsEqualVerbose(dkey, dvalue, bDvalue, verbose) {
 			return false
 		}
+	}
 
-		// check values per-key
-		if dvalue.Name != b_dvalue.Name ||
-			dvalue.Address != b_dvalue.Address ||
-			dvalue.DeviceType != b_dvalue.DeviceType ||
-			dvalue.Id != b_dvalue.Id ||
-			dvalue.Community != b_dvalue.Community ||
-			dvalue.SnmpV3 != b_dvalue.SnmpV3 ||
-			dvalue.SnmpTimeout != b_dvalue.SnmpTimeout ||
-			dvalue.SnmpVersion != b_dvalue.SnmpVersion {
+	return true
+}
+
+// Check if two DeviceConfig structures are equal including their channels
+func deviceConfigsEqualVerbose(dkey string, dvalue, bDvalue *DeviceConfig, verbose bool) bool {
+	if len(dvalue.Channels) != len(bDvalue.Channels) {
+		wbgo.Debug.Printf("device %s number of channel mismatch", dkey)
+		wbgo.Debug.Printf("%d vs %d", len(dvalue.Channels), len(bDvalue.Channels))
+		return false
+	}
+
+	// check values per-key
+	if dvalue.Name != bDvalue.Name ||
+		dvalue.Address != bDvalue.Address ||
+		dvalue.DeviceType != bDvalue.DeviceType ||
+		dvalue.ID != bDvalue.ID ||
+		dvalue.Community != bDvalue.Community ||
+		dvalue.SnmpV3 != bDvalue.SnmpV3 ||
+		dvalue.SnmpTimeout != bDvalue.SnmpTimeout ||
+		dvalue.SnmpVersion != bDvalue.SnmpVersion {
+		if verbose {
+			wbgo.Debug.Printf("device %s configuration mismatch", dkey)
+			wbgo.Debug.Printf("%+v", dvalue)
+			wbgo.Debug.Print("vs.")
+			wbgo.Debug.Printf("%+v", bDvalue)
+		}
+		return false
+	}
+
+	// check channels
+	for ckey, cvalue := range dvalue.Channels {
+		bCvalue, ok := bDvalue.Channels[ckey]
+		if !ok {
 			if verbose {
-				wbgo.Debug.Printf("device %s configuration mismatch", dkey)
-				wbgo.Debug.Printf("%+v", dvalue)
-				wbgo.Debug.Print("vs.")
-				wbgo.Debug.Printf("%+v", b_dvalue)
+				wbgo.Debug.Printf("device %s channel %s doesn't exist in another", dkey, ckey)
 			}
 			return false
 		}
+		if !channelConfigsEqualVerbose(dkey, ckey, cvalue, bCvalue, verbose) {
+			return false
+		}
+	}
 
-		// check channels
-		for ckey, cvalue := range a.Devices[dkey].Channels {
-			var b_cvalue *ChannelConfig
+	return true
+}
 
-			if b_cvalue, ok = b.Devices[dkey].Channels[ckey]; !ok {
-				if verbose {
-					wbgo.Debug.Printf("device %s channel %s doesn't exist in another", dkey, ckey)
-				}
-				return false
+// Check if two ChannelConfig structures are equal
+func channelConfigsEqualVerbose(dkey, ckey string, cvalue, bCvalue *ChannelConfig, verbose bool) bool {
+	// check values per-key
+	if cvalue.Name != bCvalue.Name ||
+		cvalue.Oid != bCvalue.Oid ||
+		cvalue.ControlType != bCvalue.ControlType ||
+		cvalue.PollInterval != bCvalue.PollInterval ||
+		cvalue.Order != bCvalue.Order {
+		if verbose {
+			wbgo.Debug.Printf("device %s channel %s configuration mismatch", dkey, ckey)
+			wbgo.Debug.Printf("%+v", cvalue)
+			wbgo.Debug.Print("vs.")
+			wbgo.Debug.Printf("%+v", bCvalue)
+		}
+		return false
+	}
+
+	// check function pointer
+	if reflect.ValueOf(cvalue.Conv).Pointer() != reflect.ValueOf(bCvalue.Conv).Pointer() {
+		if verbose {
+			wbgo.Debug.Printf("device %s channel %s conversion function mismatch", dkey, ckey)
+			wbgo.Debug.Printf("%v", reflect.ValueOf(cvalue.Conv))
+			wbgo.Debug.Print("vs.")
+			wbgo.Debug.Printf("%v", reflect.ValueOf(bCvalue.Conv))
+		}
+		return false
+	}
+
+	// check function param for Scale
+	if reflect.ValueOf(cvalue.Conv).Pointer() == reflect.ValueOf(Scale(1)).Pointer() {
+		if cvalue.Conv("1") != bCvalue.Conv("1") {
+			if verbose {
+				wbgo.Debug.Printf("device %s channel %s Scale() function coefficient mismatch", dkey, ckey)
+				wbgo.Debug.Printf("%s", cvalue.Conv("1"))
+				wbgo.Debug.Print("vs.")
+				wbgo.Debug.Printf("%s", bCvalue.Conv("1"))
 			}
-
-			// check values per-key
-			if cvalue.Name != b_cvalue.Name ||
-				cvalue.Oid != b_cvalue.Oid ||
-				cvalue.ControlType != b_cvalue.ControlType ||
-				cvalue.PollInterval != b_cvalue.PollInterval ||
-				cvalue.Order != b_cvalue.Order {
-				if verbose {
-					wbgo.Debug.Printf("device %s channel %s configuration mismatch", dkey, ckey)
-					wbgo.Debug.Printf("%+v", cvalue)
-					wbgo.Debug.Print("vs.")
-					wbgo.Debug.Printf("%+v", b_cvalue)
-				}
-				return false
-			}
-
-			// check function pointer
-			if reflect.ValueOf(cvalue.Conv).Pointer() != reflect.ValueOf(b_cvalue.Conv).Pointer() {
-				if verbose {
-					wbgo.Debug.Printf("device %s channel %s conversion function mismatch", dkey, ckey)
-					wbgo.Debug.Printf("%v", reflect.ValueOf(cvalue.Conv))
-					wbgo.Debug.Print("vs.")
-					wbgo.Debug.Printf("%v", reflect.ValueOf(b_cvalue.Conv))
-				}
-				return false
-			}
-
-			// check function param for Scale
-			if reflect.ValueOf(cvalue.Conv).Pointer() == reflect.ValueOf(Scale(1)).Pointer() {
-				if cvalue.Conv("1") != b_cvalue.Conv("1") {
-					if verbose {
-						wbgo.Debug.Printf("device %s channel %s Scale() function coefficient mismatch", dkey, ckey)
-						wbgo.Debug.Printf("%s", cvalue.Conv("1"))
-						wbgo.Debug.Print("vs.")
-						wbgo.Debug.Printf("%s", b_cvalue.Conv("1"))
-					}
-					return false
-				}
-			}
+			return false
 		}
 	}
 
@@ -140,7 +153,7 @@ func DaemonConfigsEqual(a, b *DaemonConfig) bool {
 }
 
 // Create default templates file just to check if all works fine
-func (s *ConfigParserSuite) createDefaultTemplates() (err error) {
+func (s *ConfigParserSuite) createDefaultTemplates() error {
 	// let us start from 3 basic templates
 	tpl1 := `{
 		"device_type": "type1",
@@ -179,17 +192,16 @@ func (s *ConfigParserSuite) createDefaultTemplates() (err error) {
 
 	// write these templates into separate files in current dir (which is
 	// temp dir already)
-	if err = os.WriteFile("config-type1.json", []byte(tpl1), os.ModePerm); err != nil {
-		return
+	for name, tpl := range map[string]string{
+		"config-type1.json": tpl1,
+		"config-type2.json": tpl2,
+		"config-type3.json": tpl3,
+	} {
+		if err := os.WriteFile(name, []byte(tpl), os.ModePerm); err != nil {
+			return fmt.Errorf("can't write %s: %w", name, err)
+		}
 	}
-	if err = os.WriteFile("config-type2.json", []byte(tpl2), os.ModePerm); err != nil {
-		return
-	}
-	if err = os.WriteFile("config-type3.json", []byte(tpl3), os.ModePerm); err != nil {
-		return
-	}
-
-	return
+	return nil
 }
 
 // Function to run before starting tests
@@ -285,7 +297,7 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 		Devices: map[string]*DeviceConfig{
 			"snmp_127.0.0.1_test": &DeviceConfig{
 				Name:        "SNMP 127.0.0.1_test",
-				Id:          "snmp_127.0.0.1_test",
+				ID:          "snmp_127.0.0.1_test",
 				Address:     "127.0.0.1",
 				DeviceType:  "type2",
 				Community:   "test",
@@ -321,7 +333,7 @@ func (s *ConfigParserSuite) TestSimpleFile() {
 			},
 			"snmp_127.0.0.2_test": &DeviceConfig{
 				Name:        "SNMP 127.0.0.2_test",
-				Id:          "snmp_127.0.0.2_test",
+				ID:          "snmp_127.0.0.2_test",
 				Address:     "127.0.0.2",
 				DeviceType:  "type2",
 				Community:   "test",
@@ -381,7 +393,7 @@ func (s *ConfigParserSuite) TestOidPrefix() {
 		Devices: map[string]*DeviceConfig{
 			"snmp_127.0.0.1": &DeviceConfig{
 				Name:        "SNMP 127.0.0.1",
-				Id:          "snmp_127.0.0.1",
+				ID:          "snmp_127.0.0.1",
 				Address:     "127.0.0.1",
 				DeviceType:  "",
 				Community:   "",
@@ -451,7 +463,7 @@ func (s *ConfigParserSuite) TestNoChannels() {
 
 // Fail on address collision
 func (s *ConfigParserSuite) TestAddressCollision() {
-	testConfig_1 := `{
+	testConfig1 := `{
 		"devices": [
 		{
 			"address": "127.0.0.1",
@@ -464,11 +476,11 @@ func (s *ConfigParserSuite) TestAddressCollision() {
 		]
 	}`
 
-	_, err := NewDaemonConfig(strings.NewReader(testConfig_1), ".")
-	s.Error(err, "config parser doesn't fail on device address collision")
+	_, err := NewDaemonConfig(strings.NewReader(testConfig1), ".")
+	s.Require().Error(err, "config parser doesn't fail on device address collision")
 
 	// different communities on one address is not an error
-	testConfig_2 := `{
+	testConfig2 := `{
 		"devices": [
 		{
 			"address": "127.0.0.1",
@@ -483,8 +495,8 @@ func (s *ConfigParserSuite) TestAddressCollision() {
 		]
 	}`
 
-	_, err = NewDaemonConfig(strings.NewReader(testConfig_2), ".")
-	s.NoError(err, "config parser fail on no device address collision")
+	_, err = NewDaemonConfig(strings.NewReader(testConfig2), ".")
+	s.Require().NoError(err, "config parser fail on no device address collision")
 
 	// SNMPv3 devices on one address are told apart by user name, community is ignored
 	testConfig3 := `{
@@ -543,7 +555,7 @@ func (s *ConfigParserSuite) TestInvalidAddress() {
 	}`
 
 	_, err := NewDaemonConfig(strings.NewReader(fmt.Sprintf(testConfig, "127.0.0.1:abc")), ".")
-	s.Error(err, "config parser doesn't fail on malformed device address")
+	s.Require().Error(err, "config parser doesn't fail on malformed device address")
 
 	_, err = NewDaemonConfig(strings.NewReader(fmt.Sprintf(testConfig, "127.0.0.1:1161")), ".")
 	s.NoError(err, "config parser fail on device address with port")
@@ -551,7 +563,7 @@ func (s *ConfigParserSuite) TestInvalidAddress() {
 
 // Test channel names collision
 func (s *ConfigParserSuite) TestChannelsCollision() {
-	testConfig_1 := `{
+	testConfig1 := `{
 		"devices": [{
 			"address": "127.0.0.1",
 			"community": "foo",
@@ -569,7 +581,7 @@ func (s *ConfigParserSuite) TestChannelsCollision() {
 	}`
 
 	var err error
-	_, err = NewDaemonConfig(strings.NewReader(testConfig_1), ".")
+	_, err = NewDaemonConfig(strings.NewReader(testConfig1), ".")
 	s.Error(err, "config parser doesn't fail on channel names collision")
 }
 
@@ -586,7 +598,7 @@ func (s *ConfigParserSuite) TestMissingParams() {
 	}`
 
 	_, err = NewDaemonConfig(strings.NewReader(testConfigDevAddr), ".")
-	s.Error(err, "config parser doesn't fail on device address missing")
+	s.Require().Error(err, "config parser doesn't fail on device address missing")
 
 	// missing channel name
 	testConfigChanName := `{
@@ -599,7 +611,7 @@ func (s *ConfigParserSuite) TestMissingParams() {
 	}`
 
 	_, err = NewDaemonConfig(strings.NewReader(testConfigChanName), ".")
-	s.Error(err, "config parser doesn't fail on channel name missing")
+	s.Require().Error(err, "config parser doesn't fail on channel name missing")
 
 	// missing channel OID
 	testConfigChanOid := `{

@@ -108,27 +108,27 @@ func qualifiedModules(oids []string) ([]string, bool) {
 	return names, true
 }
 
-// Translate all OIDs in given configuration
+// TranslateOidsInDaemonConfig translates all OIDs in given configuration
 func TranslateOidsInDaemonConfig(config *DaemonConfig) error {
 	// collect all unique OIDs into list
-	oids_set := make(map[string]bool)
+	oidsSet := make(map[string]bool)
 
 	for _, device := range config.Devices {
 		for _, channel := range device.Channels {
-			oids_set[channel.Oid] = true
+			oidsSet[channel.Oid] = true
 		}
 	}
 
-	oids_list := make([]string, len(oids_set))
+	oidsList := make([]string, len(oidsSet))
 
 	i := 0
-	for key := range oids_set {
-		oids_list[i] = key
-		i += 1
+	for key := range oidsSet {
+		oidsList[i] = key
+		i++
 	}
 
 	// parse list
-	tmap, err := TranslateOids(oids_list)
+	tmap, err := TranslateOids(oidsList)
 	if err != nil {
 		return err
 	}

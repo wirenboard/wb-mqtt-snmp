@@ -11,11 +11,11 @@ import (
 )
 
 const (
-	// Size of channels buffer
-	CHAN_BUFFER_SIZE = 128
+	// ChanBufferSize is the size of channels buffer
+	ChanBufferSize = 128
 )
 
-// SNMP device object
+// SnmpDevice is an SNMP device object
 type SnmpDevice struct {
 	wbgo.DeviceBase
 
@@ -56,7 +56,7 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 		var d uint64
 		d, valid = v.Value.(uint64)
 		if !valid {
-			return
+			return "", false
 		}
 		data = fmt.Sprintf("%d", d)
 		valid = true
@@ -65,7 +65,7 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 		var d int
 		d, valid = v.Value.(int)
 		if !valid {
-			return
+			return "", false
 		}
 		data = fmt.Sprintf("%d", d)
 		valid = true
@@ -74,7 +74,7 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 		var d []byte
 		d, valid = v.Value.([]byte)
 		if !valid {
-			return
+			return "", false
 		}
 		data = string(d)
 
@@ -87,13 +87,13 @@ func ConvertSnmpValue(v gosnmp.SnmpPDU) (data string, valid bool) {
 		var d uint32
 		d, valid = v.Value.(uint32)
 		if !valid {
-			return
+			return "", false
 		}
-		data = fmt.Sprintf("%s", time.Duration(d)*10*time.Millisecond)
+		data = (time.Duration(d) * 10 * time.Millisecond).String()
 		valid = true
 	}
 
-	return
+	return data, valid
 }
 
 // Create new SNMP device instance from config tree
@@ -104,7 +104,7 @@ func newSnmpDevice(snmpFactory SnmpFactory, config *DeviceConfig, debug bool) (d
 	}
 
 	device = &SnmpDevice{
-		DeviceBase: wbgo.DeviceBase{DevName: config.Id, DevTitle: config.Name},
+		DeviceBase: wbgo.DeviceBase{DevName: config.ID, DevTitle: config.Name},
 		snmp:       snmp,
 		Config:     config,
 		Cache:      make(map[*ChannelConfig]string),
@@ -114,12 +114,13 @@ func newSnmpDevice(snmpFactory SnmpFactory, config *DeviceConfig, debug bool) (d
 	return
 }
 
+// Get performs SNMP GET request for a single OID
 func (d *SnmpDevice) Get(oid string) (*gosnmp.SnmpPacket, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	packet, err := d.snmp.Get([]string{oid})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("SNMP GET %s failed: %w", oid, err)
 	}
 	if packet == nil {
 		return nil, fmt.Errorf("empty SNMP response")
@@ -138,18 +139,27 @@ func (d *SnmpDevice) Get(oid string) (*gosnmp.SnmpPacket, error) {
 	return packet, nil
 }
 
+// Close closes SNMP connection
 func (d *SnmpDevice) Close() error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	return d.snmp.Close()
+	if err := d.snmp.Close(); err != nil {
+		return fmt.Errorf("can't close SNMP connection: %w", err)
+	}
+	return nil
 }
 
+// AcceptValue ignores values received from MQTT
 // TODO: receive values from MQTT and send it to SNMP?
-func (d *SnmpDevice) AcceptValue(name, value string)        {}
-func (d *SnmpDevice) AcceptOnValue(name, value string) bool { return false }
-func (d *SnmpDevice) IsVirtual() bool                       { return false }
+func (d *SnmpDevice) AcceptValue(_, _ string) {}
 
-// SNMP device model
+// AcceptOnValue ignores "on" values received from MQTT
+func (d *SnmpDevice) AcceptOnValue(_, _ string) bool { return false }
+
+// IsVirtual reports that SNMP device is not virtual
+func (d *SnmpDevice) IsVirtual() bool { return false }
+
+// SnmpModel is an SNMP device model
 type SnmpModel struct {
 	wbgo.ModelBase
 	config *DaemonConfig
@@ -176,7 +186,7 @@ type SnmpModel struct {
 	pollTimer wbgo.RTimer
 }
 
-// SNMP model constructor
+// NewSnmpModel is an SNMP model constructor
 func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig, start time.Time) (model *SnmpModel, err error) {
 	model = &SnmpModel{
 		config: config,
@@ -198,7 +208,7 @@ func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig, start time.Time
 			model.DeviceChannelMap[model.config.Devices[dev].Channels[ch]] = model.devices[i]
 		}
 
-		i += 1
+		i++
 	}
 
 	// fill poll table
@@ -207,7 +217,7 @@ func NewSnmpModel(snmpFactory SnmpFactory, config *DaemonConfig, start time.Time
 	// form queries from config and given start time
 	model.formQueries(start)
 
-	return
+	return model, nil
 }
 
 // Form queries from config and fill poll table
@@ -234,11 +244,11 @@ func (m *SnmpModel) formQueries(deadline time.Time) {
 
 	// push that queues into poll table
 	for interval, lst := range queries {
-		m.pollTable.AddQueue(NewPollQueue(lst), interval)
+		_ = m.pollTable.AddQueue(NewPollQueue(lst), interval)
 	}
 }
 
-// Reader worker
+// PollWorker is a reader worker
 // Receives poll query, perform SNMP transaction and
 // send result (or error) to publisher worker
 func (m *SnmpModel) PollWorker(id int, req <-chan PollQuery, res chan PollResult, err chan PollError, quit <-chan struct{}, done chan struct{}) {
@@ -270,7 +280,7 @@ LPollWorker:
 	}
 }
 
-// Publisher worker
+// PublisherWorker is a publisher worker
 // Receives new values from Reader workers
 func (m *SnmpModel) PublisherWorker(data <-chan PollResult, err <-chan PollError, quit, done chan struct{}) {
 LPublisherWorker:
@@ -343,7 +353,7 @@ LPublisherWorker:
 	}
 }
 
-// Timer triggers pollTable to send queries
+// PollTimerWorker triggers pollTable to send queries
 func (m *SnmpModel) PollTimerWorker(quit <-chan struct{}, done chan struct{}) {
 	var t time.Time
 
@@ -375,7 +385,7 @@ func (m *SnmpModel) PollTimerWorker(quit <-chan struct{}, done chan struct{}) {
 	}
 }
 
-// Setup poll timer and timer channel
+// SetPollTimer sets up poll timer and timer channel
 // Generally this is for testing
 func (m *SnmpModel) SetPollTimer(t wbgo.RTimer) {
 	m.pollTimer = t
@@ -384,12 +394,12 @@ func (m *SnmpModel) SetPollTimer(t wbgo.RTimer) {
 // Start model
 func (m *SnmpModel) Start() error {
 	// create all channels
-	m.queryChannel = make(chan PollQuery, CHAN_BUFFER_SIZE)
-	m.resultChannel = make(chan PollResult, CHAN_BUFFER_SIZE)
-	m.errorChannel = make(chan PollError, CHAN_BUFFER_SIZE)
+	m.queryChannel = make(chan PollQuery, ChanBufferSize)
+	m.resultChannel = make(chan PollResult, ChanBufferSize)
+	m.errorChannel = make(chan PollError, ChanBufferSize)
 	m.quitChannels = make([]chan struct{}, m.config.NumWorkers+2) // +2 for publisher and poll timer
-	m.pollDoneChannel = make(chan struct{}, CHAN_BUFFER_SIZE)
-	m.pubDoneChannel = make(chan struct{}, CHAN_BUFFER_SIZE)
+	m.pollDoneChannel = make(chan struct{}, ChanBufferSize)
+	m.pubDoneChannel = make(chan struct{}, ChanBufferSize)
 	m.pollTimerDoneChannel = make(chan struct{})
 
 	for i := range m.quitChannels {
@@ -410,7 +420,7 @@ func (m *SnmpModel) Start() error {
 			m.Stop()
 			return err
 		}
-		m.SetPollTimer(wbgo.NewRealRTimer(nextPoll.Sub(time.Now())))
+		m.SetPollTimer(wbgo.NewRealRTimer(time.Until(nextPoll)))
 	}
 
 	// start workers and publisher
@@ -424,7 +434,7 @@ func (m *SnmpModel) Start() error {
 	return nil
 }
 
-// Built-in poll function - leave this empty, we have our own autopoll already
+// Poll is a built-in poll function - leave this empty, we have our own autopoll already
 func (m *SnmpModel) Poll() {}
 
 // Stop model - send signal to terminate all workers
@@ -434,11 +444,6 @@ func (m *SnmpModel) Stop() {
 	if m.pollTimer != nil {
 		m.pollTimer.Stop()
 	}
-
-	// close all data channels
-	// close(m.queryChannel)
-	// close(m.resultChannel)
-	// close(m.errorChannel)
 
 	// send signals to quit to all workers
 	for i := range m.quitChannels {
@@ -465,6 +470,4 @@ func (m *SnmpModel) Stop() {
 			wbgo.Error.Printf("can't close SNMP device %s: %s", device.DevName, err)
 		}
 	}
-
-	// fmt.Printf("Done: poll %d, pub %d, timer %d\n", pollDone, pubDone, pollTimerDone)
 }

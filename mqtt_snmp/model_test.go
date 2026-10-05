@@ -62,12 +62,12 @@ func (o *MockDeviceObserver) OnError(dev wbgo.DeviceModel, name, value string) {
 
 // CheckEvents checks if all events from list were pushed into log (maybe in another order)
 func (o *MockDeviceObserver) CheckEvents(list []*MockDeviceEvent, timeout int) error {
-	timeout_ch := make(chan struct{})
-	go Timeout(timeout, timeout_ch)
+	timeoutCh := make(chan struct{})
+	go Timeout(timeout, timeoutCh)
 
 	for range list {
 		select {
-		case <-timeout_ch:
+		case <-timeoutCh:
 			return fmt.Errorf("event timeout")
 		case event := <-o.Log:
 			gotEvent := false
@@ -76,7 +76,6 @@ func (o *MockDeviceObserver) CheckEvents(list []*MockDeviceEvent, timeout int) e
 				if list[j] != nil && *(list[j]) == event {
 					list[j] = nil
 					gotEvent = true
-					// fmt.Printf("Got event %v\n", event)
 					break
 				}
 			}
@@ -92,11 +91,11 @@ func (o *MockDeviceObserver) CheckEvents(list []*MockDeviceEvent, timeout int) e
 
 // WaitForNoMessages checks if no messages are going to be received during given interval
 func (o *MockDeviceObserver) WaitForNoMessages(timeout int) error {
-	timeout_ch := make(chan struct{})
-	go Timeout(timeout, timeout_ch)
+	timeoutCh := make(chan struct{})
+	go Timeout(timeout, timeoutCh)
 
 	select {
-	case <-timeout_ch:
+	case <-timeoutCh:
 		return nil
 	case event := <-o.Log:
 		return fmt.Errorf("got unexpected message: %v", event)
@@ -132,11 +131,10 @@ func (snmp *FakeSNMP) Get(oids []string) (packet *gosnmp.SnmpPacket, err error) 
 		packet = pkg
 		err = nil
 		return
-	} else {
-		packet = nil
-		err = fmt.Errorf("No such instance")
-		return
 	}
+	packet = nil
+	err = fmt.Errorf("No such instance")
+	return
 }
 
 func (snmp *FakeSNMP) Close() error {
@@ -195,7 +193,6 @@ func (t *FakeRTimer) Reset(d time.Duration) {
 	t.currentTime = t.currentTime.Add(d)
 	// send sync
 	t.sync <- struct{}{}
-	// fmt.Printf("[FAKETIMER] Updated time: %v\n", t.currentTime)
 }
 
 // Tick sends a new message to the output channel
@@ -203,7 +200,6 @@ func (t *FakeRTimer) Tick() {
 	// wait for sync on Reset()
 	<-t.sync
 
-	// fmt.Printf("[FAKETIMER] Tick %v\n", t.currentTime)
 	t.c <- t.currentTime
 }
 
@@ -293,7 +289,7 @@ func (m *ModelWorkersTest) SetupTest() {
 				Name:        "Device 1",
 				Address:     "127.0.0.1",
 				Community:   "test",
-				Id:          "snmp_device1",
+				ID:          "snmp_device1",
 				SnmpVersion: gosnmp.Version2c,
 				SnmpTimeout: 1,
 				Channels: map[string]*ChannelConfig{
@@ -367,7 +363,7 @@ func (m *ModelWorkersTest) TestPublisherWorker() {
 	m.resultChannel <- PollResult{Channel: ch, Data: "baz"}
 
 	// wait for them to be processed
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		<-done
 	}
 
@@ -386,9 +382,9 @@ func (m *ModelWorkersTest) TestPublisherWorker() {
 	}
 
 	// compare mock logs
-	m.Equal(<-obs.Log, MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel1, type value, value foo, order 1"})
-	m.Equal(<-obs.Log, MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel1, value bar"})
-	m.Equal(<-obs.Log, MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel1, value baz"})
+	m.Equal(MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel1, type value, value foo, order 1"}, <-obs.Log)
+	m.Equal(MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel1, value bar"}, <-obs.Log)
+	m.Equal(MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel1, value baz"}, <-obs.Log)
 }
 
 // Test poll worker itself (outside the model)
@@ -425,7 +421,7 @@ func (m *ModelWorkersTest) TestPollWorker() {
 	default:
 		m.Fail("no result from poller")
 	}
-	m.Equal(res, PollResult{Channel: ch1, Data: "HelloWorld"})
+	m.Equal(PollResult{Channel: ch1, Data: "HelloWorld"}, res)
 
 	//
 	// Poll new value
@@ -447,7 +443,7 @@ func (m *ModelWorkersTest) TestPollWorker() {
 	default:
 		m.Fail("no result from poller")
 	}
-	m.Equal(res, PollResult{ch1, "GoAway"})
+	m.Equal(PollResult{ch1, "GoAway"}, res)
 
 	//
 	// Poll no value and so get error
@@ -468,7 +464,7 @@ func (m *ModelWorkersTest) TestPollWorker() {
 	default:
 		m.Fail("no error from poller")
 	}
-	m.Equal(er, PollError{Channel: ch2, Error: "No such instance"})
+	m.Equal(PollError{Channel: ch2, Error: "SNMP GET " + ch2.Oid + " failed: No such instance"}, er)
 
 	//
 	// Poll new value with scale
@@ -490,7 +486,7 @@ func (m *ModelWorkersTest) TestPollWorker() {
 	default:
 		m.Fail("no result from poller")
 	}
-	m.Equal(res, PollResult{ch3, "10.0"})
+	m.Equal(PollResult{ch3, "10.0"}, res)
 
 	// close worker
 	m.quitChannel <- struct{}{}
@@ -540,7 +536,7 @@ func (m *ModelWorkersTest) TestModel() {
 		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel3, type value, value 20.0, order 3"},
 	}
 
-	m.NoError(obs.CheckEvents(events1, EventTimeout))
+	m.Require().NoError(obs.CheckEvents(events1, EventTimeout))
 
 	// Change SNMP value for channel 1 and channel 2
 	InsertFakeSNMPMessage("127.0.0.1@test@.1.2.3.4", "baz")
@@ -553,19 +549,19 @@ func (m *ModelWorkersTest) TestModel() {
 		&MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel1, value baz"},
 	}
 
-	m.NoError(obs.CheckEvents(events2, EventTimeout))
+	m.Require().NoError(obs.CheckEvents(events2, EventTimeout))
 
 	timer.Tick()
 	events3 := []*MockDeviceEvent{
 		&MockDeviceEvent{OnValueEvent, "device snmp_device1, name channel2, value moo"},
 	}
 
-	m.NoError(obs.CheckEvents(events3, EventTimeout))
+	m.Require().NoError(obs.CheckEvents(events3, EventTimeout))
 
 	timer.Tick()
 
 	// wait for observer to flush and get no more events
-	m.NoError(obs.WaitForNoMessages(WaitTimeout))
+	m.Require().NoError(obs.WaitForNoMessages(WaitTimeout))
 }
 
 func TestModelWorkers(t *testing.T) {

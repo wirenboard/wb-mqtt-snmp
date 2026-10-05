@@ -2,6 +2,7 @@ package mqtt_snmp
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"net/netip"
 	"strings"
@@ -11,7 +12,7 @@ import (
 	"github.com/gosnmp/gosnmp"
 )
 
-// Minimal SNMP interface
+// SnmpInterface is a minimal SNMP interface
 // We need it to create fake SNMP driver for testing.
 // gosnmp.GoSNMP implements this interface
 type SnmpInterface interface {
@@ -19,7 +20,7 @@ type SnmpInterface interface {
 	Close() error
 }
 
-// SNMP interface factory type
+// SnmpFactory is an SNMP interface factory type
 type SnmpFactory func(config *DeviceConfig, debug bool) (SnmpInterface, error)
 
 // NewGoSNMP configures and connects a per-device SNMP session.
@@ -30,7 +31,7 @@ func NewGoSNMP(config *DeviceConfig, debug bool) (SnmpInterface, error) {
 	}
 	if err := client.Connect(); err != nil {
 		_ = client.Close()
-		return nil, err
+		return nil, fmt.Errorf("can't connect to %s: %w", config.Address, err)
 	}
 	return client, nil
 }
@@ -66,13 +67,13 @@ func newGoSNMPConfig(config *DeviceConfig, debug bool) (*gosnmp.GoSNMP, error) {
 }
 
 // Keep the address[:port] configuration syntax.
-func snmpAddress(address string) (string, uint16, error) {
+func snmpAddress(address string) (host string, port uint16, err error) {
 	// A bare or bracketed IPv6 literal has no port.
 	literal := address
 	if strings.HasPrefix(address, "[") && strings.HasSuffix(address, "]") {
 		literal = address[1 : len(address)-1]
 	}
-	if ip, err := netip.ParseAddr(literal); err == nil && ip.Is6() {
+	if ip, parseErr := netip.ParseAddr(literal); parseErr == nil && ip.Is6() {
 		return literal, 161, nil
 	}
 	if !strings.Contains(address, ":") {
@@ -81,18 +82,18 @@ func snmpAddress(address string) (string, uint16, error) {
 		}
 		return "", 0, fmt.Errorf("invalid SNMP address: %s", address)
 	}
-	host, port, err := net.SplitHostPort(address)
+	host, service, err := net.SplitHostPort(address)
 	if err != nil {
 		return "", 0, fmt.Errorf("invalid SNMP address: %w", err)
 	}
 	if host == "" {
 		return "", 0, fmt.Errorf("invalid SNMP address %s: empty host", address)
 	}
-	n, err := net.LookupPort("udp", port)
+	n, err := net.LookupPort("udp", service)
 	if err != nil {
 		return "", 0, fmt.Errorf("invalid SNMP address %s: %w", address, err)
 	}
-	if n == 0 {
+	if n < 1 || n > math.MaxUint16 {
 		return "", 0, fmt.Errorf("invalid SNMP address %s: port must be 1-65535", address)
 	}
 	return host, uint16(n), nil
