@@ -154,16 +154,21 @@ type DeviceConfig struct {
 	OidPrefix                                string
 	SnmpVersion                              gosnmp.SnmpVersion
 	SnmpTimeout                              int
+	SnmpV3                                   SnmpV3Config
 	PollInterval                             int
 
 	// Channels is map from channel names
 	Channels map[string]*ChannelConfig
 }
 
-// Get device ID from community string and address
+// GenerateId builds a device ID from address and community string (SNMPv1/v2c) or user name (SNMPv3).
 func (d *DeviceConfig) GenerateId() string {
-	if d.Community != "" {
-		return d.Address + "_" + d.Community
+	credential := d.Community
+	if d.SnmpVersion == gosnmp.Version3 {
+		credential = d.SnmpV3.UserName
+	}
+	if credential != "" {
+		return d.Address + "_" + credential
 	} else {
 		return d.Address
 	}
@@ -273,8 +278,10 @@ func copySnmpVersion(fromMap *map[string]any, key string, to *gosnmp.SnmpVersion
 				*to = gosnmp.Version1
 			case "2c":
 				*to = gosnmp.Version2c
+			case "3":
+				*to = gosnmp.Version3
 			default:
-				return fmt.Errorf("SNMP version must be either 1 or 2c, %s given", val)
+				return fmt.Errorf("SNMP version must be 1, 2c or 3, %s given", val)
 			}
 		} else {
 			return fmt.Errorf("%s must be string, but %T given", key, entry)
@@ -538,6 +545,14 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]any) error {
 	if err := copyString(&devEntry, "community", &(d.Community), false); err != nil {
 		return err
 	}
+	if err := copySnmpVersion(&devEntry, "snmp_version", &(d.SnmpVersion), false); err != nil {
+		return err
+	}
+	if d.SnmpVersion == gosnmp.Version3 {
+		if err := d.SnmpV3.parse(devEntry); err != nil {
+			return err
+		}
+	}
 
 	// fill default values
 	d.Name = "SNMP " + d.GenerateId()
@@ -557,11 +572,17 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]any) error {
 	if err := copyString(&devEntry, "device_type", &(d.DeviceType), false); err != nil {
 		return err
 	}
-	if err := copySnmpVersion(&devEntry, "snmp_version", &(d.SnmpVersion), false); err != nil {
-		return err
+	if d.SnmpVersion == gosnmp.Version3 {
+		if _, _, err := d.SnmpV3.securityParameters(); err != nil {
+			return fmt.Errorf("invalid SNMPv3 configuration for %s: %w", d.Id, err)
+		}
 	}
 	if err := copyInt(&devEntry, "snmp_timeout", &(d.SnmpTimeout), false); err != nil {
 		return err
+	}
+	// gosnmp fails every request at once with a zero timeout
+	if d.SnmpTimeout <= 0 {
+		d.SnmpTimeout = DefaultSnmpTimeout
 	}
 	if err := copyString(&devEntry, "oid_prefix", &(d.OidPrefix), false); err != nil {
 		return err
