@@ -28,7 +28,7 @@ func (c *SnmpV3Config) parse(entry map[string]any) error {
 		{"snmp_context_name", &c.ContextName},
 	}
 	for _, field := range fields {
-		if err := copyString(&entry, field.key, field.value, false); err != nil {
+		if err := copyString(entry, field.key, field.value, false); err != nil {
 			return err
 		}
 	}

@@ -1,3 +1,9 @@
+wb-mqtt-snmp (1.9.1) stable; urgency=medium
+
+  * Fix golangci-lint issues
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Mon, 05 Oct 2026 10:20:28 +0400
+
 wb-mqtt-snmp (1.9.0) stable; urgency=medium
 
   * Add SNMPv3 support

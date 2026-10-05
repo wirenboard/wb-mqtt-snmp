@@ -65,11 +65,11 @@ func TestTranslateOidsSystemMibs(t *testing.T) {
 				t.Setenv("MIBDIRS", "")
 			case "snmp.conf":
 				t.Setenv("MIBDIRS", "")
-				if err := os.MkdirAll(filepath.Join(home, ".snmp"), 0755); err != nil {
+				if err := os.MkdirAll(filepath.Join(home, ".snmp"), 0o755); err != nil {
 					t.Fatal(err)
 				}
 				if err := os.WriteFile(filepath.Join(home, ".snmp", "snmp.conf"),
-					[]byte("mibdirs $HOME/custom-mibs\n"), 0644); err != nil {
+					[]byte("mibdirs $HOME/custom-mibs\n"), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -145,7 +145,7 @@ BROKEN-MIB DEFINITIONS ::= BEGIN
 IMPORTS missingRoot FROM MISSING-MIB;
 broken OBJECT IDENTIFIER ::= { missingRoot 1 }
 END
-`), 0644); err != nil {
+`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	got, err := TranslateOids([]string{"WB-TEST-MIB::wbTestValue.0"})
@@ -167,7 +167,7 @@ WB-TEST-OTHER-MIB DEFINITIONS ::= BEGIN
 IMPORTS enterprises FROM SNMPv2-SMI;
 wbTestOther OBJECT IDENTIFIER ::= { enterprises 60001 }
 END
-`), 0644); err != nil {
+`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

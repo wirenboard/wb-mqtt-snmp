@@ -1,9 +1,12 @@
+// Package mqtt_snmp implements the SNMP to MQTT bridge driver.
 package mqtt_snmp
 
 import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
+	"maps"
 	"math"
 	"os"
 	"regexp"
@@ -15,30 +18,32 @@ import (
 )
 
 const (
-	// Default templates directory
+	// TemplatesDirectory is the default templates directory
 	// TemplatesDirectory = "/usr/share/wb-mqtt-snmp/templates"
 	TemplatesDirectory = "./templates"
 
-	// Template file regexp
-	TemplatesFileMask = ".*\\.json"
+	// TemplatesFileMask is the template file regexp
+	TemplatesFileMask = "config-.*\\.json"
 
-	// Default poll interval for channels (ms)
+	// DefaultChannelPollInterval is the default poll interval for channels (ms)
 	DefaultChannelPollInterval = 1000
 
-	// Default channel control type
+	// DefaultChannelControlType is the default channel control type
 	DefaultChannelControlType = "value"
 
-	// Default SNMP version
+	// DefaultSnmpVersion is the default SNMP version
 	DefaultSnmpVersion = gosnmp.Version2c
 
-	// Default SNMP timeout (s)
+	// DefaultSnmpTimeout is the default SNMP timeout (s)
 	DefaultSnmpTimeout = 5
 
-	// Default number of workers
+	// DefaultNumWorkers is the default number of workers
 	DefaultNumWorkers = 4
 
 	floatEps = 0.00001 // epsilon to compare floats
 )
+
+var templatesFileRegexp = regexp.MustCompile(TemplatesFileMask)
 
 // Device templates storage type
 type deviceTemplatesStorage struct {
@@ -53,7 +58,8 @@ func (tpl *deviceTemplatesStorage) Load(dir string) error {
 		return nil // templates are already loaded
 	}
 
-	files, err := os.ReadDir(dir)
+	fsys := os.DirFS(dir)
+	files, err := fs.ReadDir(fsys, ".")
 
 	if err != nil {
 		return fmt.Errorf("failed to read templates dir %s: %s", dir, err.Error())
@@ -62,17 +68,12 @@ func (tpl *deviceTemplatesStorage) Load(dir string) error {
 	tpl.templates = make(map[string]map[string]any)
 
 	for _, file := range files {
-		m, err := regexp.MatchString(TemplatesFileMask, file.Name())
-		if err != nil {
-			return fmt.Errorf("error in filename regexp: %s", err.Error())
-		}
-
 		// skip files which don't match regexp
-		if !m {
+		if !templatesFileRegexp.MatchString(file.Name()) {
 			continue
 		}
 
-		data, err := os.ReadFile(dir + "/" + file.Name())
+		data, err := fs.ReadFile(fsys, file.Name())
 
 		if err != nil {
 			return fmt.Errorf("failed to read template file %s: %s", file.Name(), err.Error())
@@ -103,9 +104,7 @@ func (tpl *deviceTemplatesStorage) Load(dir string) error {
 // Initialize raw device entry using template
 func (tpl *deviceTemplatesStorage) InitEntry(devType string, entry map[string]any) error {
 	if data, ok := tpl.templates[devType]; ok {
-		for key, value := range data {
-			entry[key] = value
-		}
+		maps.Copy(entry, data)
 	} else {
 		return fmt.Errorf("no such template: %s", devType)
 	}
@@ -113,11 +112,13 @@ func (tpl *deviceTemplatesStorage) InitEntry(devType string, entry map[string]an
 	return nil
 }
 
-// Channel value converter type
+// ValueConverter is a channel value converter type
 type ValueConverter func(string) string
 
+// AsIs returns value unchanged
 func AsIs(s string) string { return s }
 
+// Scale returns converter which multiplies numeric value by factor
 func Scale(factor float64) ValueConverter {
 	return func(s string) string {
 		f, err := strconv.ParseFloat(s, 64)
@@ -140,7 +141,7 @@ func isNumericControlType(ctype string) bool {
 	return ctype != "text"
 }
 
-// Final structures
+// ChannelConfig is a final channel configuration
 type ChannelConfig struct {
 	Name, Oid, ControlType, Units string
 	Conv                          ValueConverter
@@ -149,8 +150,9 @@ type ChannelConfig struct {
 	Device                        *DeviceConfig
 }
 
+// DeviceConfig is a final device configuration
 type DeviceConfig struct {
-	Name, Id, Address, DeviceType, Community string
+	Name, ID, Address, DeviceType, Community string
 	OidPrefix                                string
 	SnmpVersion                              gosnmp.SnmpVersion
 	SnmpTimeout                              int
@@ -161,20 +163,19 @@ type DeviceConfig struct {
 	Channels map[string]*ChannelConfig
 }
 
-// GenerateId builds a device ID from address and community string (SNMPv1/v2c) or user name (SNMPv3).
-func (d *DeviceConfig) GenerateId() string {
+// GenerateID builds a device ID from address and community string (SNMPv1/v2c) or user name (SNMPv3).
+func (d *DeviceConfig) GenerateID() string {
 	credential := d.Community
 	if d.SnmpVersion == gosnmp.Version3 {
 		credential = d.SnmpV3.UserName
 	}
 	if credential != "" {
 		return d.Address + "_" + credential
-	} else {
-		return d.Address
 	}
+	return d.Address
 }
 
-// Whole daemon configuration structure
+// DaemonConfig is a whole daemon configuration structure
 type DaemonConfig struct {
 	Debug      bool
 	NumWorkers int
@@ -184,13 +185,13 @@ type DaemonConfig struct {
 	Devices map[string]*DeviceConfig
 }
 
-// Load templates from directory into DaemonConfig storage
+// LoadTemplates loads templates from directory into DaemonConfig storage
 func (c *DaemonConfig) LoadTemplates(path string) (err error) {
 	err = c.templates.Load(path)
 	return
 }
 
-// Generate daemon config from input stream and directory with templates
+// NewDaemonConfig generates daemon config from input stream and directory with templates
 func NewDaemonConfig(input io.Reader, templatesDir string) (config *DaemonConfig, err error) {
 	config = &DaemonConfig{}
 	if err = config.LoadTemplates(templatesDir); err != nil {
@@ -202,18 +203,18 @@ func NewDaemonConfig(input io.Reader, templatesDir string) (config *DaemonConfig
 	return
 }
 
-// Make empty device config, fill it with
+// NewEmptyDeviceConfig makes empty device config, fills it with
 // default configuration values such as SnmpVersion and SnmpTimeout
 func NewEmptyDeviceConfig() *DeviceConfig {
 	return &DeviceConfig{DeviceType: "", Community: "", SnmpVersion: DefaultSnmpVersion, SnmpTimeout: DefaultSnmpTimeout, OidPrefix: "", PollInterval: DefaultChannelPollInterval}
 }
 
-// Make empty channel config
+// NewEmptyChannelConfig makes empty channel config
 func NewEmptyChannelConfig() *ChannelConfig {
 	return &ChannelConfig{ControlType: DefaultChannelControlType, Conv: AsIs, PollInterval: DefaultChannelPollInterval, Units: "", Order: 0}
 }
 
-// JSON unmarshaller for DaemonConfig
+// UnmarshalJSON is a JSON unmarshaller for DaemonConfig
 func (c *DaemonConfig) UnmarshalJSON(raw []byte) error {
 	var root struct {
 		Debug      bool
@@ -236,8 +237,8 @@ func (c *DaemonConfig) UnmarshalJSON(raw []byte) error {
 }
 
 // Copy raw any data from map to string
-func copyString(fromMap *map[string]any, key string, to *string, required bool) error {
-	if entry, ok := (*fromMap)[key]; ok {
+func copyString(fromMap map[string]any, key string, to *string, required bool) error {
+	if entry, ok := fromMap[key]; ok {
 		if val, valid := entry.(string); valid {
 			*to = val
 		} else {
@@ -253,8 +254,8 @@ func copyString(fromMap *map[string]any, key string, to *string, required bool) 
 }
 
 // Copy raw any data from map to int
-func copyInt(fromMap *map[string]any, key string, to *int, required bool) error {
-	if entry, ok := (*fromMap)[key]; ok {
+func copyInt(fromMap map[string]any, key string, to *int, required bool) error {
+	if entry, ok := fromMap[key]; ok {
 		if val, valid := entry.(float64); valid {
 			*to = int(val)
 		} else {
@@ -270,8 +271,8 @@ func copyInt(fromMap *map[string]any, key string, to *int, required bool) error 
 }
 
 // Copy raw any data from map to SnmpVersion
-func copySnmpVersion(fromMap *map[string]any, key string, to *gosnmp.SnmpVersion, required bool) error {
-	if entry, ok := (*fromMap)[key]; ok {
+func copySnmpVersion(fromMap map[string]any, key string, to *gosnmp.SnmpVersion, required bool) error {
+	if entry, ok := fromMap[key]; ok {
 		if val, valid := entry.(string); valid {
 			switch val {
 			case "1":
@@ -296,8 +297,8 @@ func copySnmpVersion(fromMap *map[string]any, key string, to *gosnmp.SnmpVersion
 }
 
 // Copy raw any data from map to float64
-func copyFloat64(fromMap *map[string]any, key string, to *float64, required bool) error {
-	if entry, ok := (*fromMap)[key]; ok {
+func copyFloat64(fromMap map[string]any, key string, to *float64, required bool) error {
+	if entry, ok := fromMap[key]; ok {
 		if val, valid := entry.(float64); valid {
 			*to = val
 		} else {
@@ -346,12 +347,12 @@ func (c *DaemonConfig) parseDevices(devs []map[string]any) error {
 }
 
 // Try to get name from channel entry
-func getNameFromEntry(entry *map[string]any) (name string, err error) {
+func getNameFromEntry(entry map[string]any) (name string, err error) {
 	err = nil
 
 	var valid bool
 
-	if nameEntry, ok := (*entry)["name"]; ok {
+	if nameEntry, ok := entry["name"]; ok {
 		if name, valid = nameEntry.(string); !valid {
 			err = fmt.Errorf("channel name must be string, %T given", nameEntry)
 		}
@@ -400,22 +401,22 @@ func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry, devEntry map[string]a
 		names := make([]string, 0, 10)
 
 		for _, chanEntry := range l {
-			if channel, valid := chanEntry.(map[string]any); valid {
-				if name, err := getNameFromEntry(&channel); err == nil {
-
-					// check name collision first
-					if _, ok := m[name]; ok {
-						return nil, fmt.Errorf("channel name collision: %s", name)
-					}
-
-					m[name] = channel
-					names = append(names, name)
-				} else {
-					return nil, err
-				}
-			} else {
+			channel, valid := chanEntry.(map[string]any)
+			if !valid {
 				return nil, fmt.Errorf("channel config must be object, %T given", chanEntry)
 			}
+			name, err := getNameFromEntry(channel)
+			if err != nil {
+				return nil, err
+			}
+
+			// check name collision first
+			if _, ok := m[name]; ok {
+				return nil, fmt.Errorf("channel name collision: %s", name)
+			}
+
+			m[name] = channel
+			names = append(names, name)
 		}
 
 		return names, nil
@@ -437,9 +438,7 @@ func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry, devEntry map[string]a
 		// check if this name is present in channel map
 		if _, present := tplChannelsMap[name]; present {
 			// merge entries
-			for n, v := range channel {
-				tplChannelsMap[name][n] = v
-			}
+			maps.Copy(tplChannelsMap[name], channel)
 		} else {
 			// create new entry
 			tplChannelsMap[name] = channel
@@ -463,7 +462,7 @@ func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry, devEntry map[string]a
 	for _, name := range tplChannelNames {
 		if _, ok := tplChannelsMap[name]; ok {
 			order[name] = float64(currentOrder) // XXX: this is dirty, don't try this at home
-			currentOrder += 1
+			currentOrder++
 		}
 	}
 
@@ -472,7 +471,7 @@ func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry, devEntry map[string]a
 		if _, ok := order[name]; !ok {
 			if _, ok := tplChannelsMap[name]; ok {
 				order[name] = float64(currentOrder) // XXX: this is dirty, don't try this at home
-				currentOrder += 1
+				currentOrder++
 			}
 		}
 	}
@@ -487,7 +486,7 @@ func (c *DaemonConfig) layConfigDataOverTemplate(tplEntry, devEntry map[string]a
 	i := 0
 	for _, value := range tplChannelsMap {
 		chanList[i] = value
-		i += 1
+		i++
 	}
 
 	tplEntry["channels"] = chanList
@@ -535,17 +534,17 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]any) error {
 
 	// insert entries in a hard way
 	// address field is required
-	if err := copyString(&devEntry, "address", &(d.Address), true); err != nil {
+	if err := copyString(devEntry, "address", &(d.Address), true); err != nil {
 		return err
 	}
 	if _, _, err := snmpAddress(d.Address); err != nil {
 		return err
 	}
 
-	if err := copyString(&devEntry, "community", &(d.Community), false); err != nil {
+	if err := copyString(devEntry, "community", &(d.Community), false); err != nil {
 		return err
 	}
-	if err := copySnmpVersion(&devEntry, "snmp_version", &(d.SnmpVersion), false); err != nil {
+	if err := copySnmpVersion(devEntry, "snmp_version", &(d.SnmpVersion), false); err != nil {
 		return err
 	}
 	if d.SnmpVersion == gosnmp.Version3 {
@@ -555,59 +554,59 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]any) error {
 	}
 
 	// fill default values
-	d.Name = "SNMP " + d.GenerateId()
-	d.Id = "snmp_" + d.GenerateId()
+	d.Name = "SNMP " + d.GenerateID()
+	d.ID = "snmp_" + d.GenerateID()
 
 	// check address collision
-	if _, ok := c.Devices[d.Id]; ok {
-		return fmt.Errorf("device address collision on %s", d.Id)
+	if _, ok := c.Devices[d.ID]; ok {
+		return fmt.Errorf("device address collision on %s", d.ID)
 	}
 
-	if err := copyString(&devEntry, "name", &(d.Name), false); err != nil {
+	if err := copyString(devEntry, "name", &(d.Name), false); err != nil {
 		return err
 	}
-	if err := copyString(&devEntry, "id", &(d.Id), false); err != nil {
+	if err := copyString(devEntry, "id", &(d.ID), false); err != nil {
 		return err
 	}
-	if err := copyString(&devEntry, "device_type", &(d.DeviceType), false); err != nil {
+	if err := copyString(devEntry, "device_type", &(d.DeviceType), false); err != nil {
 		return err
 	}
 	if d.SnmpVersion == gosnmp.Version3 {
 		if _, _, err := d.SnmpV3.securityParameters(); err != nil {
-			return fmt.Errorf("invalid SNMPv3 configuration for %s: %w", d.Id, err)
+			return fmt.Errorf("invalid SNMPv3 configuration for %s: %w", d.ID, err)
 		}
 	}
-	if err := copyInt(&devEntry, "snmp_timeout", &(d.SnmpTimeout), false); err != nil {
+	if err := copyInt(devEntry, "snmp_timeout", &(d.SnmpTimeout), false); err != nil {
 		return err
 	}
 	// gosnmp fails every request at once with a zero timeout
 	if d.SnmpTimeout <= 0 {
 		d.SnmpTimeout = DefaultSnmpTimeout
 	}
-	if err := copyString(&devEntry, "oid_prefix", &(d.OidPrefix), false); err != nil {
+	if err := copyString(devEntry, "oid_prefix", &(d.OidPrefix), false); err != nil {
 		return err
 	}
-	if err := copyInt(&devEntry, "poll_interval", &(d.PollInterval), false); err != nil {
+	if err := copyInt(devEntry, "poll_interval", &(d.PollInterval), false); err != nil {
 		return err
 	}
 
 	d.Channels = make(map[string]*ChannelConfig)
 
 	// parse channels
-	if channelsEntry, ok := devEntry["channels"]; ok {
-		if channels, valid := channelsEntry.([]map[string]any); valid {
-			if err := d.parseChannels(channels); err != nil {
-				return fmt.Errorf("channel parse error in %s: %s", d.Id, err)
-			}
-		} else {
-			return fmt.Errorf("channels list in %s must be array of objects, %T given", d.Id, channelsEntry)
-		}
-	} else {
-		return fmt.Errorf("channels list is not present for %s", d.Id)
+	channelsEntry, ok := devEntry["channels"]
+	if !ok {
+		return fmt.Errorf("channels list is not present for %s", d.ID)
+	}
+	channels, valid := channelsEntry.([]map[string]any)
+	if !valid {
+		return fmt.Errorf("channels list in %s must be array of objects, %T given", d.ID, channelsEntry)
+	}
+	if err := d.parseChannels(channels); err != nil {
+		return fmt.Errorf("channel parse error in %s: %s", d.ID, err)
 	}
 
 	// append device to storage
-	c.Devices[d.Id] = d
+	c.Devices[d.ID] = d
 
 	return nil
 }
@@ -616,7 +615,7 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]any) error {
 func (d *DeviceConfig) parseChannels(chans []map[string]any) error {
 	// for each element in input slice - create ChannelConfig structure and append to DeviceConfig
 	if len(chans) == 0 {
-		return fmt.Errorf("channels list is empty for %s", d.Id)
+		return fmt.Errorf("channels list is empty for %s", d.ID)
 	}
 
 	for _, value := range chans {
@@ -637,12 +636,12 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]any) error {
 	// fill channel config
 	//
 	// name is required
-	if err := copyString(&channel, "name", &(c.Name), true); err != nil {
+	if err := copyString(channel, "name", &(c.Name), true); err != nil {
 		return err
 	}
 
 	// oid is required
-	if err := copyString(&channel, "oid", &(c.Oid), true); err != nil {
+	if err := copyString(channel, "oid", &(c.Oid), true); err != nil {
 		return err
 	}
 
@@ -653,7 +652,7 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]any) error {
 	}
 
 	// control type is optional
-	if err := copyString(&channel, "control_type", &(c.ControlType), false); err != nil {
+	if err := copyString(channel, "control_type", &(c.ControlType), false); err != nil {
 		return err
 	}
 
@@ -662,7 +661,7 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]any) error {
 	if _, ok := channel["scale"]; ok {
 		if isNumericControlType(c.ControlType) {
 			var scale float64
-			if err := copyFloat64(&channel, "scale", &scale, false); err != nil {
+			if err := copyFloat64(channel, "scale", &scale, false); err != nil {
 				return err
 			}
 			c.Conv = Scale(scale)
@@ -673,12 +672,12 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]any) error {
 
 	// poll interval is optional
 	c.PollInterval = d.PollInterval
-	if err := copyInt(&channel, "poll_interval", &(c.PollInterval), false); err != nil {
+	if err := copyInt(channel, "poll_interval", &(c.PollInterval), false); err != nil {
 		return err
 	}
 
 	// units is optional and works only for control_type == value
-	if err := copyString(&channel, "units", &(c.Units), false); err != nil {
+	if err := copyString(channel, "units", &(c.Units), false); err != nil {
 		return err
 	}
 
@@ -688,7 +687,7 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]any) error {
 	}
 
 	// add order
-	if err := copyInt(&channel, "order", &(c.Order), true); err != nil {
+	if err := copyInt(channel, "order", &(c.Order), true); err != nil {
 		return err
 	}
 

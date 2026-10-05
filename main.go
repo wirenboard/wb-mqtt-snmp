@@ -1,31 +1,27 @@
+// Package main is the wb-mqtt-snmp daemon entry point.
 package main
 
 import (
 	"flag"
-	"fmt"
-	"github.com/contactless/wbgo"
-	m "github.com/wirenboard/wb-mqtt-snmp/mqtt_snmp"
 	"io"
 	"net/http"
-	_ "net/http/pprof"
+	_ "net/http/pprof" //nolint:gosec // pprof is served only when -profile is specified
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"syscall"
+	"time"
+
+	"github.com/contactless/wbgo"
+	m "github.com/wirenboard/wb-mqtt-snmp/mqtt_snmp"
 )
 
+const profileReadHeaderTimeout = 10 * time.Second
+
 func main() {
-
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
-		}
-	}()
-
 	broker := flag.String("broker", "unix:///var/run/mosquitto/mosquitto.sock", "MQTT broker URL")
 	configFile := flag.String("config", "/etc/wb-mqtt-snmp.conf", "Config file location")
 	templatesDir := flag.String("templates", "/usr/share/wb-mqtt-snmp/templates/", "Templates directory")
-	debug := flag.Bool("debug", false, "Enable debugging")
+	debugFlag := flag.Bool("debug", false, "Enable debugging")
 	useSyslog := flag.Bool("syslog", false, "Use syslog for logging")
 	profile := flag.String("profile", "", "Run pprof server")
 
@@ -33,7 +29,11 @@ func main() {
 
 	if *profile != "" {
 		go func() {
-			wbgo.Debug.Println(http.ListenAndServe(*profile, nil))
+			server := &http.Server{
+				Addr:              *profile,
+				ReadHeaderTimeout: profileReadHeaderTimeout,
+			}
+			wbgo.Debug.Println(server.ListenAndServe())
 		}()
 	}
 
@@ -57,7 +57,7 @@ func main() {
 	}
 
 	// update debug flag
-	cfg.Debug = cfg.Debug || *debug
+	cfg.Debug = cfg.Debug || *debugFlag
 	wbgo.SetDebuggingEnabled(cfg.Debug)
 
 	// translate OIDs
@@ -65,8 +65,6 @@ func main() {
 		wbgo.Error.Printf("error translating OIDs: %s", err)
 		os.Exit(6) // EXIT_NOTCONFIGURED, see https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Process_Exit_Codes
 	}
-
-	// wbgo.Debug.Printf("Config structure: %#v\n", *(cfg.Devices["snmp_test.net-snmp.org"]))
 
 	// create driver object and start daemon
 	if driver, err := m.NewSnmpDriver(cfg, *broker); err != nil {

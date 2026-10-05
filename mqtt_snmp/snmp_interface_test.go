@@ -63,7 +63,7 @@ func TestSnmpGetOverUDP(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() { _ = listener.Close() })
-			if err := listener.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			if err = listener.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				t.Fatal(err)
 			}
 			config := NewEmptyDeviceConfig()
@@ -111,12 +111,12 @@ func serveSnmpGet(conn net.PacketConn, config *DeviceConfig, oid string) error {
 	buffer := make([]byte, 65535)
 	n, addr, err := conn.ReadFrom(buffer)
 	if err != nil {
-		return err
+		return fmt.Errorf("read GET request: %w", err)
 	}
 	// UnmarshalTrap also verifies authentication, unlike SnmpDecodePacket.
 	request, err := peer.UnmarshalTrap(buffer[:n], false)
 	if err != nil {
-		return err
+		return fmt.Errorf("decode GET request: %w", err)
 	}
 	if request.Version != config.SnmpVersion || request.PDUType != gosnmp.GetRequest || len(request.Variables) != 1 || request.Variables[0].Name != oid {
 		return fmt.Errorf("unexpected GET request")
@@ -133,10 +133,12 @@ func serveSnmpGet(conn net.PacketConn, config *DeviceConfig, oid string) error {
 	request.Variables[0].Type, request.Variables[0].Value = gosnmp.OctetString, []byte("test device")
 	wire, err := request.MarshalMsg()
 	if err != nil {
-		return err
+		return fmt.Errorf("encode GET response: %w", err)
 	}
-	_, err = conn.WriteTo(wire, addr)
-	return err
+	if _, err := conn.WriteTo(wire, addr); err != nil {
+		return fmt.Errorf("send GET response: %w", err)
+	}
+	return nil
 }
 
 func serveSnmpDiscovery(conn net.PacketConn, security *gosnmp.UsmSecurityParameters) error {

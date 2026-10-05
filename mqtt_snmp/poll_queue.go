@@ -6,29 +6,29 @@ import (
 	"time"
 )
 
-// Poll query unit
+// PollQuery is a poll query unit
 // Contains pointer to SNMP connection, OID to poll, channel
 // to send result to and deadline time
 // Query is put into a queue according to its poll interval
-
 type PollQuery struct {
 	Channel  *ChannelConfig
 	Deadline time.Time
 }
 
-// Poll result is data sent from PollWorker to PublishWorker
+// PollResult is data sent from PollWorker to PublishWorker
 // Data is processed by Conv function by PollWorker
 type PollResult struct {
 	Channel *ChannelConfig
 	Data    string
 }
 
+// PollError is error sent from PollWorker to PublishWorker
 type PollError struct {
 	Channel *ChannelConfig
 	Error   string
 }
 
-// Poll queue structure
+// PollQueue is a poll queue structure
 // Just a ring buffer full of queries
 type PollQueue struct {
 	size   int
@@ -38,7 +38,7 @@ type PollQueue struct {
 	buffer []PollQuery
 }
 
-// Create an empty poll queue with size specified
+// NewEmptyPollQueue creates an empty poll queue with size specified
 func NewEmptyPollQueue(size int) *PollQueue {
 	return &PollQueue{
 		size:   size,
@@ -49,12 +49,12 @@ func NewEmptyPollQueue(size int) *PollQueue {
 	}
 }
 
-// Create a poll queue from slice
+// NewPollQueue creates a poll queue from slice
 func NewPollQueue(queries []PollQuery) *PollQueue {
 	q := NewEmptyPollQueue(len(queries))
 
 	for i := range queries {
-		q.Push(queries[i])
+		_ = q.Push(queries[i])
 	}
 
 	return q
@@ -72,7 +72,7 @@ func (p *PollQueue) Push(q PollQuery) error {
 
 	p.buffer[p.end] = q
 
-	p.end += 1
+	p.end++
 	if p.end == p.size {
 		p.end = 0
 	}
@@ -91,7 +91,7 @@ func (p *PollQueue) Pop() (q PollQuery, err error) {
 
 	q = p.buffer[p.start]
 
-	p.start += 1
+	p.start++
 	if p.start == p.size {
 		p.start = 0
 	}
@@ -103,17 +103,17 @@ func (p *PollQueue) Pop() (q PollQuery, err error) {
 	return
 }
 
-// Check if queue on the top is pending
+// IsTopPending checks if queue on the top is pending
 func (p *PollQueue) IsTopPending(currentTime time.Time) bool {
 	return !p.empty && (p.buffer[p.start].Deadline.Before(currentTime) || p.buffer[p.start].Deadline.Equal(currentTime))
 }
 
-// Is queue empty
+// IsEmpty checks if queue is empty
 func (p *PollQueue) IsEmpty() bool {
 	return p.empty
 }
 
-// Get head element without removing it
+// GetHead gets head element without removing it
 func (p *PollQueue) GetHead() (q PollQuery, err error) {
 	err = nil
 	if p.IsEmpty() {
@@ -125,7 +125,7 @@ func (p *PollQueue) GetHead() (q PollQuery, err error) {
 	return
 }
 
-// Poll table is a set of poll queues with different
+// PollTable is a set of poll queues with different
 // poll_interval in each queue. This allows us to avoid
 // sorting and might work well with lots of channels with
 // equal poll intervals
@@ -139,6 +139,7 @@ type PollTable struct {
 	Intervals []int
 }
 
+// NewPollTable creates an empty poll table
 func NewPollTable() *PollTable {
 	return &PollTable{
 		Queues:    make(map[int]*PollQueue),
@@ -146,7 +147,7 @@ func NewPollTable() *PollTable {
 	}
 }
 
-// Add queue to poll table
+// AddQueue adds queue to poll table
 func (t *PollTable) AddQueue(q *PollQueue, interval int) error {
 	// check if such queue is presented here
 	if _, ok := t.Queues[interval]; ok {
@@ -163,33 +164,32 @@ func (t *PollTable) AddQueue(q *PollQueue, interval int) error {
 	return nil
 }
 
-// Do "poll" action
+// Poll does "poll" action
 // Push pending polls into a given channel and requeue them
 // Returns number of polls sent into process
 func (t *PollTable) Poll(out chan PollQuery, deadline time.Time) int {
 	count := 0
 
 	// process key by key
-	for _, poll_interval := range t.Intervals {
-		for t.Queues[poll_interval].IsTopPending(deadline) {
-			head, err := t.Queues[poll_interval].Pop()
+	for _, pollInterval := range t.Intervals {
+		for t.Queues[pollInterval].IsTopPending(deadline) {
+			head, err := t.Queues[pollInterval].Pop()
 			if err != nil {
 				// TODO: log error here
 				return count
 			}
 
-			// fmt.Printf("[polltable] Send request from head: %v\n", head)
 			out <- head
-			head.Deadline = deadline.Add(time.Duration(poll_interval) * time.Millisecond)
-			t.Queues[poll_interval].Push(head)
-			count += 1
+			head.Deadline = deadline.Add(time.Duration(pollInterval) * time.Millisecond)
+			_ = t.Queues[pollInterval].Push(head)
+			count++
 		}
 	}
 
 	return count
 }
 
-// Get next poll time point
+// NextPollTime gets next poll time point
 func (t *PollTable) NextPollTime() (minTime time.Time, err error) {
 	// Go through all queues heads and get minimal time
 	var head, h PollQuery

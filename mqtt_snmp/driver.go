@@ -5,16 +5,18 @@ import (
 	"time"
 )
 
+// MQTT driver identifiers
 const (
-	DRIVER_CLIENT_ID = "snmp"
+	DriverClientID = "snmp"
 )
 
+// NewSnmpDriver creates SNMP driver connected to MQTT broker
 func NewSnmpDriver(config *DaemonConfig, broker string) (*wbgo.Driver, error) {
 	model, err := NewSnmpModel(NewGoSNMP, config, time.Now())
 	if err != nil {
 		return nil, err
 	}
 
-	driver := wbgo.NewDriver(model, wbgo.NewPahoMQTTClient(broker, DRIVER_CLIENT_ID, false))
+	driver := wbgo.NewDriver(model, wbgo.NewPahoMQTTClient(broker, DriverClientID, false))
 	return driver, nil
 }
