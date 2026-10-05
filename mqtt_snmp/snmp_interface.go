@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/contactless/wbgo"
 	"github.com/gosnmp/gosnmp"
+	"github.com/wirenboard/wbgong"
 )
 
 // SnmpInterface is a minimal SNMP interface
@@ -51,7 +51,7 @@ func newGoSNMPConfig(config *DeviceConfig, debug bool) (*gosnmp.GoSNMP, error) {
 		Retries: 0,
 	}
 	if debug {
-		client.Logger = gosnmp.NewLogger(wbgo.Debug)
+		client.Logger = gosnmp.NewLogger(wbgong.Debug)
 	}
 	if config.SnmpVersion == gosnmp.Version3 {
 		flags, security, err := config.SnmpV3.securityParameters()

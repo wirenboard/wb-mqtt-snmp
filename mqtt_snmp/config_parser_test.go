@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"maps"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/contactless/wbgo"
-	"github.com/contactless/wbgo/testutils"
+	"github.com/wirenboard/wbgong"
+	"github.com/wirenboard/wbgong/testutils"
 	"github.com/gosnmp/gosnmp"
 )
 
@@ -26,7 +25,7 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 	// check debug field
 	if a.Debug != b.Debug {
 		if verbose {
-			wbgo.Debug.Print("debug mismatch")
+			wbgong.Debug.Print("debug mismatch")
 		}
 		return false
 	}
@@ -34,14 +33,14 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 	// check number of workers
 	if a.NumWorkers != b.NumWorkers {
 		if verbose {
-			wbgo.Debug.Print("num_workers mismatch")
+			wbgong.Debug.Print("num_workers mismatch")
 		}
 		return false
 	}
 
 	if len(a.Devices) != len(b.Devices) {
 		if verbose {
-			wbgo.Debug.Print("devices number mismatch")
+			wbgong.Debug.Print("devices number mismatch")
 		}
 		return false
 	}
@@ -50,7 +49,7 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 	for dkey, dvalue := range a.Devices {
 		bDvalue, ok := b.Devices[dkey]
 		if !ok {
-			wbgo.Debug.Printf("device %s doesn't exist in another", dkey)
+			wbgong.Debug.Printf("device %s doesn't exist in another", dkey)
 			return false
 		}
 		if !deviceConfigsEqualVerbose(dkey, dvalue, bDvalue, verbose) {
@@ -64,8 +63,8 @@ func DaemonConfigsEqualVerbose(a, b *DaemonConfig, verbose bool) bool {
 // Check if two DeviceConfig structures are equal including their channels
 func deviceConfigsEqualVerbose(dkey string, dvalue, bDvalue *DeviceConfig, verbose bool) bool {
 	if len(dvalue.Channels) != len(bDvalue.Channels) {
-		wbgo.Debug.Printf("device %s number of channel mismatch", dkey)
-		wbgo.Debug.Printf("%d vs %d", len(dvalue.Channels), len(bDvalue.Channels))
+		wbgong.Debug.Printf("device %s number of channel mismatch", dkey)
+		wbgong.Debug.Printf("%d vs %d", len(dvalue.Channels), len(bDvalue.Channels))
 		return false
 	}
 
@@ -79,10 +78,10 @@ func deviceConfigsEqualVerbose(dkey string, dvalue, bDvalue *DeviceConfig, verbo
 		dvalue.SnmpTimeout != bDvalue.SnmpTimeout ||
 		dvalue.SnmpVersion != bDvalue.SnmpVersion {
 		if verbose {
-			wbgo.Debug.Printf("device %s configuration mismatch", dkey)
-			wbgo.Debug.Printf("%+v", dvalue)
-			wbgo.Debug.Print("vs.")
-			wbgo.Debug.Printf("%+v", bDvalue)
+			wbgong.Debug.Printf("device %s configuration mismatch", dkey)
+			wbgong.Debug.Printf("%+v", dvalue)
+			wbgong.Debug.Print("vs.")
+			wbgong.Debug.Printf("%+v", bDvalue)
 		}
 		return false
 	}
@@ -92,7 +91,7 @@ func deviceConfigsEqualVerbose(dkey string, dvalue, bDvalue *DeviceConfig, verbo
 		bCvalue, ok := bDvalue.Channels[ckey]
 		if !ok {
 			if verbose {
-				wbgo.Debug.Printf("device %s channel %s doesn't exist in another", dkey, ckey)
+				wbgong.Debug.Printf("device %s channel %s doesn't exist in another", dkey, ckey)
 			}
 			return false
 		}
@@ -113,33 +112,24 @@ func channelConfigsEqualVerbose(dkey, ckey string, cvalue, bCvalue *ChannelConfi
 		cvalue.PollInterval != bCvalue.PollInterval ||
 		cvalue.Order != bCvalue.Order {
 		if verbose {
-			wbgo.Debug.Printf("device %s channel %s configuration mismatch", dkey, ckey)
-			wbgo.Debug.Printf("%+v", cvalue)
-			wbgo.Debug.Print("vs.")
-			wbgo.Debug.Printf("%+v", bCvalue)
+			wbgong.Debug.Printf("device %s channel %s configuration mismatch", dkey, ckey)
+			wbgong.Debug.Printf("%+v", cvalue)
+			wbgong.Debug.Print("vs.")
+			wbgong.Debug.Printf("%+v", bCvalue)
 		}
 		return false
 	}
 
-	// check function pointer
-	if reflect.ValueOf(cvalue.Conv).Pointer() != reflect.ValueOf(bCvalue.Conv).Pointer() {
-		if verbose {
-			wbgo.Debug.Printf("device %s channel %s conversion function mismatch", dkey, ckey)
-			wbgo.Debug.Printf("%v", reflect.ValueOf(cvalue.Conv))
-			wbgo.Debug.Print("vs.")
-			wbgo.Debug.Printf("%v", reflect.ValueOf(bCvalue.Conv))
-		}
-		return false
-	}
-
-	// check function param for Scale
-	if reflect.ValueOf(cvalue.Conv).Pointer() == reflect.ValueOf(Scale(1)).Pointer() {
-		if cvalue.Conv("1") != bCvalue.Conv("1") {
+	// compare conversion functions by behaviour: function pointers are unreliable
+	// for closures, since the compiler may inline Scale() and emit a separate
+	// closure body per call site
+	for _, sample := range []string{"1", "-2.5", "100"} {
+		if cvalue.Conv(sample) != bCvalue.Conv(sample) {
 			if verbose {
-				wbgo.Debug.Printf("device %s channel %s Scale() function coefficient mismatch", dkey, ckey)
-				wbgo.Debug.Printf("%s", cvalue.Conv("1"))
-				wbgo.Debug.Print("vs.")
-				wbgo.Debug.Printf("%s", bCvalue.Conv("1"))
+				wbgong.Debug.Printf("device %s channel %s conversion function mismatch on %q", dkey, ckey, sample)
+				wbgong.Debug.Printf("%s", cvalue.Conv(sample))
+				wbgong.Debug.Print("vs.")
+				wbgong.Debug.Printf("%s", bCvalue.Conv(sample))
 			}
 			return false
 		}
@@ -212,7 +202,7 @@ func (s *ConfigParserSuite) SetupTestFixture(t *testing.T) {
 	// create temp dir
 	s.tempDir, s.oldDirRm = testutils.SetupTempDir(t)
 
-	wbgo.Debug.Printf("Created test temp dir %s", s.tempDir)
+	wbgong.Debug.Printf("Created test temp dir %s", s.tempDir)
 
 	s.Ck("can't create default templates", s.createDefaultTemplates())
 }

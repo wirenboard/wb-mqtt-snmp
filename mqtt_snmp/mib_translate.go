@@ -7,9 +7,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/contactless/wbgo"
 	"github.com/golangsnmp/gomib"
 	"github.com/golangsnmp/gomib/mib"
+	"github.com/wirenboard/wbgong"
 )
 
 // TranslateOids translates mixed numeric and symbolic OIDs using locally
@@ -31,7 +31,7 @@ func TranslateOids(oids []string) (map[string]string, error) {
 	}
 
 	if len(symbolic) == 0 {
-		wbgo.Info.Printf("OID translation: %d numeric OIDs, no MIBs loaded", len(out))
+		wbgong.Info.Printf("OID translation: %d numeric OIDs, no MIBs loaded", len(out))
 		return out, nil
 	}
 	// Sort for a stable log order.
@@ -42,7 +42,7 @@ func TranslateOids(oids []string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	wbgo.Info.Printf("OID translation: %d numeric, %d symbolic OIDs, %d MIB modules loaded",
+	wbgong.Info.Printf("OID translation: %d numeric, %d symbolic OIDs, %d MIB modules loaded",
 		len(out), len(symbolic), len(modules.Modules()))
 
 	// Report all failed OIDs at once, not only the first one.
@@ -54,7 +54,7 @@ func TranslateOids(oids []string) (map[string]string, error) {
 			continue
 		}
 		out[value] = "." + oid.String()
-		wbgo.Info.Printf("OID translation: %s -> %s", value, out[value])
+		wbgong.Info.Printf("OID translation: %s -> %s", value, out[value])
 	}
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
@@ -83,7 +83,7 @@ func loadMibs(oids []string) (*mib.Mib, error) {
 	case errors.Is(err, gomib.ErrDiagnosticThreshold):
 		// Like Net-SNMP, keep usable definitions even when other
 		// installed MIBs contain parsing or resolution errors.
-		wbgo.Info.Printf("MIB loading diagnostics: %v", err)
+		wbgong.Info.Printf("MIB loading diagnostics: %v", err)
 	case errors.Is(err, gomib.ErrMissingModules):
 		// ResolveOID reports the missing module for the OID that needs it.
 	default:
