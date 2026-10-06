@@ -2,9 +2,8 @@ package mqtt_snmp
 
 import (
 	"fmt"
-	"github.com/contactless/wbgo"
-	"github.com/contactless/wbgo/testutils"
 	"github.com/gosnmp/gosnmp"
+	"github.com/wirenboard/wbgong/testutils"
 	"strings"
 	"sync"
 	"testing"
@@ -30,6 +29,7 @@ const (
 	OnValueEvent MockDeviceEventType = iota
 	OnNewControlEvent
 	OnErrorEvent
+	OnRemoveDeviceEvent
 )
 
 type MockDeviceEvent struct {
@@ -41,23 +41,45 @@ type MockDeviceEvent struct {
 type MockDeviceObserver struct {
 	Log   chan MockDeviceEvent
 	mutex sync.Mutex
+
+	// AddDevice call number (starting from 1) which fails, 0 means never
+	FailAddDeviceCall int
+	addDeviceCalls    int
 }
 
-func (o *MockDeviceObserver) OnValue(dev wbgo.DeviceModel, name, value string) {
+func (o *MockDeviceObserver) AddDevice(dev *SnmpDevice) error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
-	o.Log <- MockDeviceEvent{OnValueEvent, fmt.Sprintf("device %s, name %s, value %s", dev.Name(), name, value)}
+	o.addDeviceCalls++
+	if o.addDeviceCalls == o.FailAddDeviceCall {
+		return fmt.Errorf("can't add device %s", dev.ID)
+	}
+	return nil
 }
 
-func (o *MockDeviceObserver) OnNewControl(dev wbgo.LocalDeviceModel, control wbgo.Control) string {
+func (o *MockDeviceObserver) RemoveDevice(dev *SnmpDevice) error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
-	o.Log <- MockDeviceEvent{OnNewControlEvent, fmt.Sprintf("device %s, name %s, type %s, value %s, order %d", dev.Name(), control.Name, control.GetType(), control.Value, control.Order)}
-	return control.Value
+	o.Log <- MockDeviceEvent{OnRemoveDeviceEvent, fmt.Sprintf("device %s", dev.ID)}
+	return nil
 }
 
-// The OnError stub
-func (o *MockDeviceObserver) OnError(dev wbgo.DeviceModel, name, value string) {
+func (o *MockDeviceObserver) UpdateValue(dev *SnmpDevice, ch *ChannelConfig, value string) error {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	o.Log <- MockDeviceEvent{OnValueEvent, fmt.Sprintf("device %s, name %s, value %s", dev.ID, ch.Name, value)}
+	return nil
+}
+
+func (o *MockDeviceObserver) NewControl(dev *SnmpDevice, ch *ChannelConfig, value string, readError bool) error {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	o.Log <- MockDeviceEvent{OnNewControlEvent, fmt.Sprintf("device %s, name %s, type %s, value %s, order %d", dev.ID, ch.Name, ch.ControlType, value, ch.Order)}
+	return nil
+}
+
+func (o *MockDeviceObserver) SetError(dev *SnmpDevice, ch *ChannelConfig, readError bool) error {
+	return nil
 }
 
 // CheckEvents checks if all events from list were pushed into log (maybe in another order)
@@ -218,23 +240,6 @@ func NewFakeRTimer(localTime time.Time, d time.Duration) *FakeRTimer {
 	return t
 }
 
-// Fake model observer
-type FakeModelObserver struct {
-	// Device observer registered
-	DevObserver *MockDeviceObserver
-}
-
-func (f *FakeModelObserver) CallSync(thunk func())             {}
-func (f *FakeModelObserver) WhenReady(thunk func())            {}
-func (f *FakeModelObserver) RemoveDevice(dev wbgo.DeviceModel) {}
-func (f *FakeModelObserver) OnNewDevice(dev wbgo.DeviceModel) {
-	dev.Observe(f.DevObserver)
-}
-
-func NewFakeModelObserver(devObserver *MockDeviceObserver) *FakeModelObserver {
-	return &FakeModelObserver{devObserver}
-}
-
 // Test model workers - goroutines to process requests
 type ModelWorkersTest struct {
 	testutils.Suite
@@ -255,7 +260,7 @@ type ModelWorkersTest struct {
 	StartTime time.Time
 
 	// Model observer
-	ModelObserver *FakeModelObserver
+	ModelObserver *MockDeviceObserver
 }
 
 func (m *ModelWorkersTest) SetupTestFixture(t *testing.T) {
@@ -272,7 +277,7 @@ func (m *ModelWorkersTest) SetupTest() {
 
 	m.Suite.SetupTest()
 
-	m.ModelObserver = NewFakeModelObserver(NewMockDeviceObserver())
+	m.ModelObserver = NewMockDeviceObserver()
 
 	// create channels
 	m.queryChannel = make(chan PollQuery, 128)
@@ -335,7 +340,7 @@ func (m *ModelWorkersTest) SetupTest() {
 	// create model
 	m.model, _ = NewSnmpModel(NewFakeSNMP, m.config, m.StartTime)
 
-	m.model.Observe(m.ModelObserver)
+	m.model.SetPublisher(m.ModelObserver)
 }
 
 func (m *ModelWorkersTest) TearDownTest() {
@@ -349,7 +354,7 @@ func (m *ModelWorkersTest) TestPublisherWorker() {
 	ch := m.config.Devices["snmp_device1"].Channels["channel1"]
 
 	// observe test device
-	m.model.DeviceChannelMap[ch].Observe(obs)
+	m.model.SetPublisher(obs)
 
 	done := make(chan struct{}, 128)
 
@@ -509,7 +514,7 @@ func (m *ModelWorkersTest) TestModel() {
 	m.model.SetPollTimer(timer)
 
 	// Create fake device observer
-	obs := m.ModelObserver.DevObserver
+	obs := m.ModelObserver
 
 	// Set some SNMP values
 	InsertFakeSNMPMessage("127.0.0.1@test@.1.2.3.4", "foo")
@@ -522,8 +527,12 @@ func (m *ModelWorkersTest) TestModel() {
 		// Stop closes connections once the workers have quit
 		m.model.Stop()
 		for _, dev := range m.model.devices {
-			m.True(dev.snmp.(*FakeSNMP).Closed, "connection of %s was not closed", dev.DevName)
+			m.True(dev.snmp.(*FakeSNMP).Closed, "connection of %s was not closed", dev.ID)
 		}
+		// Stop must remove devices from MQTT
+		m.NoError(obs.CheckEvents([]*MockDeviceEvent{
+			&MockDeviceEvent{OnRemoveDeviceEvent, "device snmp_device1"},
+		}, EventTimeout))
 	}()
 
 	// Send a tick to model
@@ -562,6 +571,34 @@ func (m *ModelWorkersTest) TestModel() {
 
 	// wait for observer to flush and get no more events
 	m.Require().NoError(obs.WaitForNoMessages(WaitTimeout))
+}
+
+// Test that failed Start removes devices it has already created
+func (m *ModelWorkersTest) TestStartRollback() {
+	m.config.Devices["snmp_device2"] = &DeviceConfig{
+		Name:        "Device 2",
+		Address:     "127.0.0.2",
+		Community:   "test",
+		ID:          "snmp_device2",
+		SnmpVersion: gosnmp.Version2c,
+		SnmpTimeout: 1,
+		Channels:    map[string]*ChannelConfig{},
+	}
+	model, err := NewSnmpModel(NewFakeSNMP, m.config, m.StartTime)
+	m.Require().NoError(err)
+	model.SetPollTimer(NewFakeRTimer(m.StartTime, 1*time.Millisecond))
+
+	obs := NewMockDeviceObserver()
+	obs.FailAddDeviceCall = 2
+	model.SetPublisher(obs)
+
+	m.Require().Error(model.Start())
+
+	// only the first device was created, so only it must be removed
+	m.NoError(obs.CheckEvents([]*MockDeviceEvent{
+		&MockDeviceEvent{OnRemoveDeviceEvent, "device " + model.devices[0].ID},
+	}, EventTimeout))
+	m.NoError(obs.WaitForNoMessages(WaitTimeout))
 }
 
 func TestModelWorkers(t *testing.T) {

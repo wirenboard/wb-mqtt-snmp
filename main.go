@@ -4,6 +4,7 @@ package main
 import (
 	"flag"
 	"io"
+	"log"
 	"net/http"
 	_ "net/http/pprof" //nolint:gosec // pprof is served only when -profile is specified
 	"os"
@@ -11,11 +12,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/contactless/wbgo"
 	m "github.com/wirenboard/wb-mqtt-snmp/mqtt_snmp"
+	"github.com/wirenboard/wbgong"
 )
 
-const profileReadHeaderTimeout = 10 * time.Second
+const (
+	wbgoFile                 = "/usr/lib/wb-mqtt-snmp/wbgo.so"
+	profileReadHeaderTimeout = 10 * time.Second
+)
 
 func main() {
 	broker := flag.String("broker", "unix:///var/run/mosquitto/mosquitto.sock", "MQTT broker URL")
@@ -24,8 +28,12 @@ func main() {
 	debugFlag := flag.Bool("debug", false, "Enable debugging")
 	useSyslog := flag.Bool("syslog", false, "Use syslog for logging")
 	profile := flag.String("profile", "", "Run pprof server")
+	wbgoso := flag.String("wbgo", wbgoFile, "Location of wbgo.so plugin")
 
 	flag.Parse()
+	if err := wbgong.Init(*wbgoso); err != nil {
+		log.Fatalf("can't initialize wbgo.so: %s", err)
+	}
 
 	if *profile != "" {
 		go func() {
@@ -33,7 +41,7 @@ func main() {
 				Addr:              *profile,
 				ReadHeaderTimeout: profileReadHeaderTimeout,
 			}
-			wbgo.Debug.Println(server.ListenAndServe())
+			wbgong.Debug.Println(server.ListenAndServe())
 		}()
 	}
 
@@ -41,46 +49,46 @@ func main() {
 	var err error
 	var r io.Reader
 	if r, err = os.Open(*configFile); err != nil {
-		wbgo.Error.Printf("can't open config file %s: %s", *configFile, err)
+		wbgong.Error.Printf("can't open config file %s: %s", *configFile, err)
 		os.Exit(6) // EXIT_NOTCONFIGURED, see https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Process_Exit_Codes
 	}
 
 	// read config
 	var cfg *m.DaemonConfig
 	if cfg, err = m.NewDaemonConfig(r, *templatesDir); err != nil {
-		wbgo.Error.Printf("error parsing config file %s: %s", *configFile, err)
+		wbgong.Error.Printf("error parsing config file %s: %s", *configFile, err)
 		os.Exit(6) // EXIT_NOTCONFIGURED, see https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Process_Exit_Codes
 	}
 
 	if *useSyslog {
-		wbgo.UseSyslog()
+		wbgong.UseSyslog()
 	}
 
 	// update debug flag
 	cfg.Debug = cfg.Debug || *debugFlag
-	wbgo.SetDebuggingEnabled(cfg.Debug)
+	wbgong.SetDebuggingEnabled(cfg.Debug)
 
 	// translate OIDs
 	if err = m.TranslateOidsInDaemonConfig(cfg); err != nil {
-		wbgo.Error.Printf("error translating OIDs: %s", err)
+		wbgong.Error.Printf("error translating OIDs: %s", err)
 		os.Exit(6) // EXIT_NOTCONFIGURED, see https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Process_Exit_Codes
 	}
 
 	// create driver object and start daemon
 	if driver, err := m.NewSnmpDriver(cfg, *broker); err != nil {
-		wbgo.Error.Fatalf("can't create driver object: %s", err)
+		wbgong.Error.Fatalf("can't create driver object: %s", err)
 	} else {
 		if err := driver.Start(); err != nil {
-			wbgo.Error.Fatalf("can't start driver: %s", err)
+			wbgong.Error.Fatalf("can't start driver: %s", err)
 		} else {
-			wbgo.Debug.Println("Work in process")
+			wbgong.Debug.Println("Work in process")
 			// handle SIGINT
 			c := make(chan os.Signal, 1)
 			signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 
 			// block until SIGINT received
 			<-c
-			wbgo.Debug.Println("Termination signal caught, shutting down...")
+			wbgong.Debug.Println("Termination signal caught, shutting down...")
 
 			// stop driver and exit gracefully
 			driver.Stop()

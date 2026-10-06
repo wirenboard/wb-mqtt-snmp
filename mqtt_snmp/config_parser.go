@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/contactless/wbgo"
 	"github.com/gosnmp/gosnmp"
+	"github.com/wirenboard/wbgong"
 )
 
 const (
@@ -123,7 +123,7 @@ func Scale(factor float64) ValueConverter {
 	return func(s string) string {
 		f, err := strconv.ParseFloat(s, 64)
 		if err != nil {
-			wbgo.Warn.Printf("can't convert numeric value: %s", s)
+			wbgong.Warn.Printf("can't convert numeric value: %s", s)
 			return s
 		}
 
@@ -666,7 +666,7 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]any) error {
 			}
 			c.Conv = Scale(scale)
 		} else {
-			wbgo.Warn.Println("scale could be applied only to numeric control type")
+			wbgong.Warn.Println("scale could be applied only to numeric control type")
 		}
 	}
 
@@ -682,7 +682,7 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]any) error {
 	}
 
 	if c.Units != "" && c.ControlType != "value" {
-		wbgo.Warn.Println("units given for non-'value' channel ", c.Name, ", skipping it")
+		wbgong.Warn.Println("units given for non-'value' channel ", c.Name, ", skipping it")
 		c.Units = ""
 	}
 

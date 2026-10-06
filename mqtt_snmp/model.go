@@ -6,8 +6,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/contactless/wbgo"
 	"github.com/gosnmp/gosnmp"
+	"github.com/wirenboard/wbgong"
 )
 
 const (
@@ -17,7 +17,8 @@ const (
 
 // SnmpDevice is an SNMP device object
 type SnmpDevice struct {
-	wbgo.DeviceBase
+	ID    string
+	Title string
 
 	// device configuration right from config tree
 	Config *DeviceConfig
@@ -104,11 +105,12 @@ func newSnmpDevice(snmpFactory SnmpFactory, config *DeviceConfig, debug bool) (d
 	}
 
 	device = &SnmpDevice{
-		DeviceBase: wbgo.DeviceBase{DevName: config.ID, DevTitle: config.Name},
-		snmp:       snmp,
-		Config:     config,
-		Cache:      make(map[*ChannelConfig]string),
-		Error:      make(map[*ChannelConfig]string),
+		ID:     config.ID,
+		Title:  config.Name,
+		snmp:   snmp,
+		Config: config,
+		Cache:  make(map[*ChannelConfig]string),
+		Error:  make(map[*ChannelConfig]string),
 	}
 
 	return
@@ -149,20 +151,10 @@ func (d *SnmpDevice) Close() error {
 	return nil
 }
 
-// AcceptValue ignores values received from MQTT
-// TODO: receive values from MQTT and send it to SNMP?
-func (d *SnmpDevice) AcceptValue(_, _ string) {}
-
-// AcceptOnValue ignores "on" values received from MQTT
-func (d *SnmpDevice) AcceptOnValue(_, _ string) bool { return false }
-
-// IsVirtual reports that SNMP device is not virtual
-func (d *SnmpDevice) IsVirtual() bool { return false }
-
 // SnmpModel is an SNMP device model
 type SnmpModel struct {
-	wbgo.ModelBase
-	config *DaemonConfig
+	config    *DaemonConfig
+	publisher SnmpPublisher
 
 	// devices list
 	devices []*SnmpDevice
@@ -183,7 +175,21 @@ type SnmpModel struct {
 	pollTimerDoneChannel chan struct{}
 
 	// Poll timer to sync poll procedures
-	pollTimer wbgo.RTimer
+	pollTimer wbgong.RTimer
+}
+
+// SnmpPublisher sends model changes to the MQTT driver.
+type SnmpPublisher interface {
+	AddDevice(*SnmpDevice) error
+	RemoveDevice(*SnmpDevice) error
+	NewControl(*SnmpDevice, *ChannelConfig, string, bool) error
+	UpdateValue(*SnmpDevice, *ChannelConfig, string) error
+	SetError(*SnmpDevice, *ChannelConfig, bool) error
+}
+
+// SetPublisher sets MQTT publisher for model changes
+func (m *SnmpModel) SetPublisher(p SnmpPublisher) {
+	m.publisher = p
 }
 
 // NewSnmpModel is an SNMP model constructor
@@ -256,20 +262,20 @@ LPollWorker:
 	for {
 		select {
 		case r := <-req:
-			wbgo.Debug.Printf("[poller %d] Receive request %v\n", id, r.Channel.Oid)
+			wbgong.Debug.Printf("[poller %d] Receive request %v\n", id, r.Channel.Oid)
 			// process query
 			dev := m.DeviceChannelMap[r.Channel]
 			packet, e := dev.Get(r.Channel.Oid)
 			if e != nil {
-				wbgo.Error.Printf("failed to poll %s:%s: %s", dev.DevName, r.Channel.Name, e)
+				wbgong.Error.Printf("failed to poll %s:%s: %s", dev.ID, r.Channel.Name, e)
 				err <- PollError{Channel: r.Channel, Error: e.Error()}
 			} else if data, valid := ConvertSnmpValue(packet.Variables[0]); !valid {
 				// Get guarantees exactly one variable: one result or error per query.
-				errorMessage := fmt.Sprintf("failed to poll %s:%s: instance can't be converted to string", dev.DevName, r.Channel.Name)
-				wbgo.Error.Print(errorMessage)
+				errorMessage := fmt.Sprintf("failed to poll %s:%s: instance can't be converted to string", dev.ID, r.Channel.Name)
+				wbgong.Error.Print(errorMessage)
 				err <- PollError{Channel: r.Channel, Error: errorMessage}
 			} else {
-				wbgo.Debug.Printf("[poller %d] Send result for request %v: %v", id, r, data)
+				wbgong.Debug.Printf("[poller %d] Send result for request %v: %v", id, r, data)
 				res <- PollResult{Channel: r.Channel, Data: r.Channel.Conv(data)}
 			}
 			done <- struct{}{}
@@ -287,68 +293,82 @@ LPublisherWorker:
 	for {
 		select {
 		case d := <-data:
-			wbgo.Debug.Printf("[publisher] Receive data %+v\n", d)
-
-			// process received data
-			// get device of given channel
-			dev := m.DeviceChannelMap[d.Channel]
-
-			if dev == nil {
-				panic(fmt.Sprintf("device is not found for channel: %+v", d.Channel))
-			}
-
-			// try to get value from cache
-			val, ok := dev.Cache[d.Channel]
-			if !ok {
-				// create value in cache and create new control in MQTT
-				dev.Cache[d.Channel] = d.Data
-				dev.Error[d.Channel] = ""
-				// TODO: read-only, max value and retain flags
-				controlType := d.Channel.ControlType
-				if d.Channel.Units != "" {
-					controlType = controlType + ":" + d.Channel.Units
-				}
-				wbgo.Debug.Printf("[publisher] Create new control for channel %+v\n", *(d.Channel))
-				dev.Observer.OnNewControl(dev, wbgo.Control{Name: d.Channel.Name, Type: controlType, Value: d.Data, Order: d.Channel.Order})
-			} else {
-				if val != d.Data {
-					dev.Cache[d.Channel] = d.Data
-					// send new value only if it has been changed
-					dev.Observer.OnValue(dev, d.Channel.Name, d.Data)
-				}
-				err, ok := dev.Error[d.Channel]
-				if ok && err != "" {
-					dev.Error[d.Channel] = ""
-					dev.Observer.OnError(dev, d.Channel.Name, "")
-				}
-			}
+			wbgong.Debug.Printf("[publisher] Receive data %+v\n", d)
+			m.publishData(d)
 			done <- struct{}{}
 		case e := <-err:
-			// error handling
-			// get device of given channel
-			dev := m.DeviceChannelMap[e.Channel]
-
-			if dev == nil {
-				panic(fmt.Sprintf("device is not found for channel: %+v", e.Channel))
-			}
-			_, ok := dev.Cache[e.Channel]
-			if !ok {
-				wbgo.Debug.Printf("[publisher] Create new control for channel %+v\n", *(e.Channel))
-				dev.Observer.OnNewControl(dev, wbgo.Control{Name: e.Channel.Name, Type: e.Channel.ControlType, Order: e.Channel.Order})
-				dev.Cache[e.Channel] = ""
-				dev.Error[e.Channel] = "r"
-			}
-
-			err, ok := dev.Error[e.Channel]
-			if ok && err != "r" {
-				dev.Error[e.Channel] = "r"
-				dev.Observer.OnError(dev, e.Channel.Name, "r")
-			}
-
+			m.publishError(e)
 			done <- struct{}{}
 		case <-quit:
 			done <- struct{}{}
 			break LPublisherWorker
+		}
+	}
+}
+
+// getChannelDevice returns device of given channel
+func (m *SnmpModel) getChannelDevice(channel *ChannelConfig) *SnmpDevice {
+	dev := m.DeviceChannelMap[channel]
+	if dev == nil {
+		panic(fmt.Sprintf("device is not found for channel: %+v", channel))
+	}
+	return dev
+}
+
+// publishData creates or updates a control with the polled value
+func (m *SnmpModel) publishData(d PollResult) {
+	dev := m.getChannelDevice(d.Channel)
+
+	// try to get value from cache
+	val, ok := dev.Cache[d.Channel]
+	if !ok {
+		wbgong.Debug.Printf("[publisher] Create new control for channel %+v\n", *(d.Channel))
+		if pubErr := m.publisher.NewControl(dev, d.Channel, d.Data, false); pubErr != nil {
+			wbgong.Error.Printf("can't create control %s/%s: %s", dev.ID, d.Channel.Name, pubErr)
+			return
+		}
+		dev.Cache[d.Channel] = d.Data
+		dev.Error[d.Channel] = ""
+		return
+	}
+
+	if val != d.Data {
+		if pubErr := m.publisher.UpdateValue(dev, d.Channel, d.Data); pubErr != nil {
+			wbgong.Error.Printf("can't update control %s/%s: %s", dev.ID, d.Channel.Name, pubErr)
+			return
+		}
+		dev.Cache[d.Channel] = d.Data
+	}
+
+	if dev.Error[d.Channel] == "" {
+		return
+	}
+	if pubErr := m.publisher.SetError(dev, d.Channel, false); pubErr != nil {
+		wbgong.Error.Printf("can't clear control error %s/%s: %s", dev.ID, d.Channel.Name, pubErr)
+		return
+	}
+	dev.Error[d.Channel] = ""
+}
+
+// publishError creates a control if needed and sets the read error on it
+func (m *SnmpModel) publishError(e PollError) {
+	dev := m.getChannelDevice(e.Channel)
+
+	if _, ok := dev.Cache[e.Channel]; !ok {
+		wbgong.Debug.Printf("[publisher] Create new control for channel %+v\n", *(e.Channel))
+		if pubErr := m.publisher.NewControl(dev, e.Channel, "", true); pubErr != nil {
+			wbgong.Error.Printf("can't create control %s/%s: %s", dev.ID, e.Channel.Name, pubErr)
+		} else {
+			dev.Cache[e.Channel] = ""
+			dev.Error[e.Channel] = "r"
+		}
+	}
+
+	if err, ok := dev.Error[e.Channel]; ok && err != "r" {
+		if pubErr := m.publisher.SetError(dev, e.Channel, true); pubErr != nil {
+			wbgong.Error.Printf("can't set control error %s/%s: %s", dev.ID, e.Channel.Name, pubErr)
+		} else {
+			dev.Error[e.Channel] = "r"
 		}
 	}
 }
@@ -365,7 +385,7 @@ func (m *SnmpModel) PollTimerWorker(quit <-chan struct{}, done chan struct{}) {
 			return
 		case t = <-m.pollTimer.GetChannel():
 		}
-		wbgo.Debug.Printf("[POLLTIMEREVENT] Run at %v\n", t)
+		wbgong.Debug.Printf("[POLLTIMEREVENT] Run at %v\n", t)
 
 		// start poll and wait until it's done
 		numQueries := m.pollTable.Poll(m.queryChannel, t)
@@ -387,12 +407,16 @@ func (m *SnmpModel) PollTimerWorker(quit <-chan struct{}, done chan struct{}) {
 
 // SetPollTimer sets up poll timer and timer channel
 // Generally this is for testing
-func (m *SnmpModel) SetPollTimer(t wbgo.RTimer) {
+func (m *SnmpModel) SetPollTimer(t wbgong.RTimer) {
 	m.pollTimer = t
 }
 
 // Start model
 func (m *SnmpModel) Start() error {
+	if m.publisher == nil {
+		return fmt.Errorf("SNMP publisher is not configured")
+	}
+
 	// create all channels
 	m.queryChannel = make(chan PollQuery, ChanBufferSize)
 	m.resultChannel = make(chan PollResult, ChanBufferSize)
@@ -406,9 +430,12 @@ func (m *SnmpModel) Start() error {
 		m.quitChannels[i] = make(chan struct{})
 	}
 
-	// observe local devices
+	// create devices in MQTT driver
 	for i := range m.devices {
-		m.Observer.OnNewDevice(m.devices[i])
+		if err := m.publisher.AddDevice(m.devices[i]); err != nil {
+			m.removeDevices(m.devices[:i])
+			return fmt.Errorf("can't add device %s: %w", m.devices[i].ID, err)
+		}
 	}
 
 	// start poll timer
@@ -416,11 +443,10 @@ func (m *SnmpModel) Start() error {
 	if m.pollTimer == nil {
 		nextPoll, err := m.pollTable.NextPollTime()
 		if err != nil {
-			wbgo.Error.Fatalf("unable to get next poll time: %s", err)
-			m.Stop()
-			return err
+			m.removeDevices(m.devices)
+			return fmt.Errorf("unable to get next poll time: %w", err)
 		}
-		m.SetPollTimer(wbgo.NewRealRTimer(time.Until(nextPoll)))
+		m.SetPollTimer(wbgong.NewRealRTimer(time.Until(nextPoll)))
 	}
 
 	// start workers and publisher
@@ -434,10 +460,7 @@ func (m *SnmpModel) Start() error {
 	return nil
 }
 
-// Poll is a built-in poll function - leave this empty, we have our own autopoll already
-func (m *SnmpModel) Poll() {}
-
-// Stop model - send signal to terminate all workers
+// Stop model - terminate all workers and remove devices from MQTT
 func (m *SnmpModel) Stop() {
 
 	// stop poller
@@ -465,9 +488,29 @@ func (m *SnmpModel) Stop() {
 		}
 	}
 
+	m.CloseDevices()
+
+	// workers are stopped, so nothing can recreate controls after this
+	m.removeDevices(m.devices)
+}
+
+// CloseDevices closes SNMP connections of all devices
+func (m *SnmpModel) CloseDevices() {
 	for _, device := range m.devices {
 		if err := device.Close(); err != nil {
-			wbgo.Error.Printf("can't close SNMP device %s: %s", device.DevName, err)
+			wbgong.Error.Printf("can't close SNMP device %s: %s", device.ID, err)
+		}
+	}
+}
+
+// Remove devices from MQTT driver, so stale values don't stay in retained topics
+func (m *SnmpModel) removeDevices(devices []*SnmpDevice) {
+	if m.publisher == nil {
+		return
+	}
+	for _, dev := range devices {
+		if err := m.publisher.RemoveDevice(dev); err != nil {
+			wbgong.Error.Printf("can't remove device %s: %s", dev.ID, err)
 		}
 	}
 }
