@@ -488,14 +488,19 @@ func (m *SnmpModel) Stop() {
 		}
 	}
 
+	m.CloseDevices()
+
+	// workers are stopped, so nothing can recreate controls after this
+	m.removeDevices(m.devices)
+}
+
+// CloseDevices closes SNMP connections of all devices
+func (m *SnmpModel) CloseDevices() {
 	for _, device := range m.devices {
 		if err := device.Close(); err != nil {
 			wbgong.Error.Printf("can't close SNMP device %s: %s", device.ID, err)
 		}
 	}
-
-	// workers are stopped, so nothing can recreate controls after this
-	m.removeDevices(m.devices)
 }
 
 // Remove devices from MQTT driver, so stale values don't stay in retained topics

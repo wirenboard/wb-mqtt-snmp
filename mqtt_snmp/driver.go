@@ -33,6 +33,7 @@ func NewSnmpDriver(config *DaemonConfig, broker string) (*SnmpDriver, error) {
 		SetUseStorage(false)
 	driver, err := wbgong.NewDriverBase(args)
 	if err != nil {
+		model.CloseDevices()
 		return nil, fmt.Errorf("can't create MQTT driver: %w", err)
 	}
 
@@ -43,10 +44,12 @@ func NewSnmpDriver(config *DaemonConfig, broker string) (*SnmpDriver, error) {
 // Start starts MQTT driver loop and SNMP model
 func (d *SnmpDriver) Start() error {
 	if err := d.driver.StartLoop(); err != nil {
+		d.model.CloseDevices()
 		return fmt.Errorf("can't start MQTT driver loop: %w", err)
 	}
 	d.driver.WaitForReady()
 	if err := d.model.Start(); err != nil {
+		d.model.CloseDevices()
 		_ = d.driver.StopLoop()
 		d.driver.Close()
 		return err
@@ -117,7 +120,12 @@ func (p *mqttPublisher) UpdateValue(dev *SnmpDevice, ch *ChannelConfig, value st
 		if err := ctrl.SetRawValue(value); err != nil {
 			return fmt.Errorf("can't set value of %s/%s: %w", dev.ID, ch.Name, err)
 		}
-		return tx.ToDeviceDriverTx().UpdateControlValue(ctrl, value, previous, true)()
+		if err := tx.ToDeviceDriverTx().UpdateControlValue(ctrl, value, previous, true)(); err != nil {
+			// keep the control in sync with the model cache, which still holds the previous value
+			_ = ctrl.SetRawValue(previous)
+			return err
+		}
+		return nil
 	})
 }
 
