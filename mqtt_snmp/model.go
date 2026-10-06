@@ -151,16 +151,6 @@ func (d *SnmpDevice) Close() error {
 	return nil
 }
 
-// AcceptValue ignores values received from MQTT
-// TODO: receive values from MQTT and send it to SNMP?
-func (d *SnmpDevice) AcceptValue(_, _ string) {}
-
-// AcceptOnValue ignores "on" values received from MQTT
-func (d *SnmpDevice) AcceptOnValue(_, _ string) bool { return false }
-
-// IsVirtual reports that SNMP device is not virtual
-func (d *SnmpDevice) IsVirtual() bool { return false }
-
 // SnmpModel is an SNMP device model
 type SnmpModel struct {
 	config    *DaemonConfig
@@ -469,9 +459,6 @@ func (m *SnmpModel) Start() error {
 
 	return nil
 }
-
-// Poll is a built-in poll function - leave this empty, we have our own autopoll already
-func (m *SnmpModel) Poll() {}
 
 // Stop model - terminate all workers and remove devices from MQTT
 func (m *SnmpModel) Stop() {
