@@ -19,7 +19,7 @@ GOTEST ?= $(GO) test
 GCFLAGS :=
 LDFLAGS :=
 GO_FLAGS := -buildvcs=false
-GO_TEST_FLAGS := -v -cover
+GO_TEST_FLAGS := -v -cover -race
 
 ifeq ($(DEBUG),)
 	LDFLAGS += -s -w
