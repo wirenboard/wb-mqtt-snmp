@@ -1,6 +1,7 @@
 [Unit]
 Description=MQTT Driver for snmp devices
 After=network-online.target wb-hwconf-manager.service wb-modules.service
+Wants=network-online.target
 
 [Service]
 Type=simple
