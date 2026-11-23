@@ -104,12 +104,33 @@ func (tpl *deviceTemplatesStorage) Load(dir string) error {
 // Initialize raw device entry using template
 func (tpl *deviceTemplatesStorage) InitEntry(devType string, entry map[string]any) error {
 	if data, ok := tpl.templates[devType]; ok {
-		maps.Copy(entry, data)
+		for key, value := range data {
+			entry[key] = deepCopyJSON(value)
+		}
 	} else {
 		return fmt.Errorf("no such template: %s", devType)
 	}
 
 	return nil
+}
+
+func deepCopyJSON(value any) any {
+	switch v := value.(type) {
+	case map[string]any:
+		c := make(map[string]any, len(v))
+		for key, item := range v {
+			c[key] = deepCopyJSON(item)
+		}
+		return c
+	case []any:
+		c := make([]any, len(v))
+		for i, item := range v {
+			c[i] = deepCopyJSON(item)
+		}
+		return c
+	default:
+		return v
+	}
 }
 
 // ValueConverter is a channel value converter type
@@ -132,8 +153,20 @@ func Scale(factor float64) ValueConverter {
 			return s
 		}
 
-		return strconv.FormatFloat(f*factor, 'f', 1, 64)
+		out := strconv.FormatFloat(f*factor, 'f', decimalPlaces(f)+decimalPlaces(factor), 64)
+		if strings.Contains(out, ".") {
+			out = strings.TrimSuffix(strings.TrimRight(out, "0"), ".")
+		}
+		return out
 	}
+}
+
+func decimalPlaces(f float64) int {
+	s := strconv.FormatFloat(f, 'f', -1, 64)
+	if i := strings.IndexByte(s, '.'); i >= 0 {
+		return len(s) - i - 1
+	}
+	return 0
 }
 
 // Check if control type is numeric
@@ -226,6 +259,10 @@ func (c *DaemonConfig) UnmarshalJSON(raw []byte) error {
 
 	if err := json.Unmarshal(raw, &root); err != nil {
 		return fmt.Errorf("can't parse config JSON file: %s", err.Error())
+	}
+
+	if root.NumWorkers < 1 {
+		return fmt.Errorf("num_workers must be positive, %d given", root.NumWorkers)
 	}
 
 	c.Debug = root.Debug
@@ -341,6 +378,10 @@ func (c *DaemonConfig) parseDevices(devs []map[string]any) error {
 		if err := c.parseDeviceEntry(value); err != nil {
 			return err
 		}
+	}
+
+	if len(c.Devices) == 0 {
+		return fmt.Errorf("no enabled devices")
 	}
 
 	return nil
@@ -568,6 +609,9 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]any) error {
 	if err := copyString(devEntry, "id", &(d.ID), false); err != nil {
 		return err
 	}
+	if _, ok := c.Devices[d.ID]; ok {
+		return fmt.Errorf("device id collision on %s", d.ID)
+	}
 	if err := copyString(devEntry, "device_type", &(d.DeviceType), false); err != nil {
 		return err
 	}
@@ -588,6 +632,11 @@ func (c *DaemonConfig) parseDeviceEntry(devConfig map[string]any) error {
 	}
 	if err := copyInt(devEntry, "poll_interval", &(d.PollInterval), false); err != nil {
 		return err
+	}
+	if d.PollInterval <= 0 {
+		wbgong.Warn.Printf("%s: poll_interval must be positive, %d given; using %d ms",
+			d.ID, d.PollInterval, DefaultChannelPollInterval)
+		d.PollInterval = DefaultChannelPollInterval
 	}
 
 	d.Channels = make(map[string]*ChannelConfig)
@@ -644,6 +693,9 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]any) error {
 	if err := copyString(channel, "oid", &(c.Oid), true); err != nil {
 		return err
 	}
+	if c.Oid == "" {
+		return fmt.Errorf("oid is empty for channel %s", c.Name)
+	}
 
 	// process OID prefix
 	// only if it is defined, name is from MIB and there's no prefix in name
@@ -674,6 +726,11 @@ func (d *DeviceConfig) parseChannelEntry(channel map[string]any) error {
 	c.PollInterval = d.PollInterval
 	if err := copyInt(channel, "poll_interval", &(c.PollInterval), false); err != nil {
 		return err
+	}
+	if c.PollInterval <= 0 {
+		wbgong.Warn.Printf("%s/%s: poll_interval must be positive, %d given; using %d ms",
+			d.ID, c.Name, c.PollInterval, d.PollInterval)
+		c.PollInterval = d.PollInterval
 	}
 
 	// units is optional and works only for control_type == value

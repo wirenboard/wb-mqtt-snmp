@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gosnmp/gosnmp"
 	"github.com/wirenboard/wbgong"
 	"github.com/wirenboard/wbgong/testutils"
-	"github.com/gosnmp/gosnmp"
 )
 
 type ConfigParserSuite struct {
@@ -438,6 +438,20 @@ func (s *ConfigParserSuite) TestNoDevices() {
 	s.Error(err, "config parser doesn't fail on empty devices list")
 }
 
+// Fail when all devices are disabled
+func (s *ConfigParserSuite) TestAllDevicesDisabled() {
+	testConfig := `{
+		"devices": [{
+			"enabled": false,
+			"address": "127.0.0.1",
+			"channels": [{"name": "test", "oid": ".1.2.3"}]
+		}]
+	}`
+
+	_, err := NewDaemonConfig(strings.NewReader(testConfig), ".")
+	s.Error(err, "config parser doesn't fail when all devices are disabled")
+}
+
 // Fail on empty channels list
 func (s *ConfigParserSuite) TestNoChannels() {
 	testConfig := `{
@@ -532,7 +546,117 @@ func (s *ConfigParserSuite) TestAddressCollision() {
 	}`
 
 	_, err = NewDaemonConfig(strings.NewReader(testConfig4), ".")
-	s.Error(err, "config parser doesn't fail on SNMPv3 devices with the same user")
+	s.Require().Error(err, "config parser doesn't fail on SNMPv3 devices with the same user")
+
+	// the same custom id on different addresses must not replace the first device
+	testConfig5 := `{
+		"devices": [
+		{
+			"address": "127.0.0.1",
+			"id": "ups",
+			"device_type": "type2"
+		},
+		{
+			"address": "127.0.0.2",
+			"id": "ups",
+			"device_type": "type2"
+		}
+		]
+	}`
+
+	_, err = NewDaemonConfig(strings.NewReader(testConfig5), ".")
+	s.Require().Error(err, "config parser doesn't fail on custom device id collision")
+
+	// a custom id must not repeat the generated id of another device
+	testConfig6 := `{
+		"devices": [
+		{
+			"address": "127.0.0.1",
+			"device_type": "type2"
+		},
+		{
+			"address": "127.0.0.2",
+			"id": "snmp_127.0.0.1_test",
+			"device_type": "type2"
+		}
+		]
+	}`
+
+	_, err = NewDaemonConfig(strings.NewReader(testConfig6), ".")
+	s.Require().Error(err, "config parser doesn't fail on custom id equal to a generated one")
+
+	// different custom ids on different addresses are fine
+	testConfig7 := `{
+		"devices": [
+		{
+			"address": "127.0.0.1",
+			"id": "ups1",
+			"device_type": "type2"
+		},
+		{
+			"address": "127.0.0.2",
+			"id": "ups2",
+			"device_type": "type2"
+		}
+		]
+	}`
+
+	config, err = NewDaemonConfig(strings.NewReader(testConfig7), ".")
+	s.Require().NoError(err, "config parser fail on different custom device ids")
+	s.Len(config.Devices, 2)
+}
+
+// Channel overrides of one device must not change the template for the following devices
+func (s *ConfigParserSuite) TestTemplateNotModifiedByDevice() {
+	testConfig := `{
+		"devices": [
+		{
+			"address": "127.0.0.1",
+			"device_type": "type2",
+			"channels": [
+				{"name": "channel1", "enabled": false},
+				{"name": "channel2", "oid": ".9.9.9", "poll_interval": 7777}
+			]
+		},
+		{
+			"address": "127.0.0.2",
+			"device_type": "type2"
+		}
+		]
+	}`
+
+	config, err := NewDaemonConfig(strings.NewReader(testConfig), ".")
+	s.Require().NoError(err)
+
+	first := config.Devices["snmp_127.0.0.1_test"]
+	s.Require().NotNil(first)
+	s.NotContains(first.Channels, "channel1")
+	s.Equal(".9.9.9", first.Channels["channel2"].Oid)
+
+	second := config.Devices["snmp_127.0.0.2_test"]
+	s.Require().NotNil(second)
+	s.Require().Contains(second.Channels, "channel1", "channel disabled on one device is lost on another")
+	s.Require().Contains(second.Channels, "channel2")
+	s.Equal(".1.2.3.4.5", second.Channels["channel2"].Oid, "OID override leaked into another device")
+	s.Equal(DefaultChannelPollInterval, second.Channels["channel2"].PollInterval, "poll_interval override leaked into another device")
+}
+
+// Fail on empty OID, with or without OID prefix
+func (s *ConfigParserSuite) TestEmptyOid() {
+	for _, prefix := range []string{"", `"oid_prefix": "SNMPv2-MIB",`} {
+		testConfig := `{
+			"devices": [{
+				"address": "127.0.0.1",
+				` + prefix + `
+				"channels": [{"name": "test", "oid": ""}]
+			}]
+		}`
+
+		s.NotPanics(func() {
+			_, err := NewDaemonConfig(strings.NewReader(testConfig), ".")
+			s.Error(err, "config parser doesn't fail on empty OID")
+		})
+	}
 }
 
 // Fail on malformed address, so the daemon exits as not configured
@@ -684,6 +808,101 @@ func TestSnmpTimeout(t *testing.T) {
 			}
 			if got := config.Devices["snmp_127.0.0.1"].SnmpTimeout; got != tt.timeout {
 				t.Fatalf("timeout = %v, want %v", got, tt.timeout)
+			}
+		})
+	}
+}
+
+func TestScale(t *testing.T) {
+	for _, tt := range []struct {
+		factor float64
+		raw    string
+		want   string
+	}{
+		{0.1, "235", "23.5"},
+		{0.1, "3", "0.3"}, // not 0.30000000000000004
+		{0.1, "-15", "-1.5"},
+		{0.001, "1234", "1.234"},
+		{0.001, "450", "0.45"},
+		{0.001, "40", "0.04"},
+		{0.001, "2000", "2"},
+		{0.1, "2300", "230"},
+		{0.1, "0", "0"},
+		{0.25, "3", "0.75"},
+		{10, "12", "120"},
+		{0.1, "12.5", "1.25"},
+		{1, "007", "007"}, // scale 1 keeps the raw value
+		{0.1, "text", "text"},
+	} {
+		t.Run(fmt.Sprintf("%v*%s", tt.factor, tt.raw), func(t *testing.T) {
+			if got := Scale(tt.factor)(tt.raw); got != tt.want {
+				t.Fatalf("Scale(%v)(%q) = %q, want %q", tt.factor, tt.raw, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPollInterval(t *testing.T) {
+	for _, tt := range []struct {
+		name          string
+		deviceFields  string
+		channelFields string
+		devicePoll    int
+		channelPoll   int
+	}{
+		{"default", "", "", DefaultChannelPollInterval, DefaultChannelPollInterval},
+		{"device explicit", `"poll_interval":500,`, "", 500, 500},
+		{"channel explicit", `"poll_interval":500,`, `"poll_interval":200,`, 500, 200},
+		{"device zero", `"poll_interval":0,`, "", DefaultChannelPollInterval, DefaultChannelPollInterval},
+		{"device negative", `"poll_interval":-1,`, "", DefaultChannelPollInterval, DefaultChannelPollInterval},
+		{"device zero overridden by channel", `"poll_interval":0,`, `"poll_interval":200,`, DefaultChannelPollInterval, 200},
+		{"channel zero falls back to device", `"poll_interval":500,`, `"poll_interval":0,`, 500, 500},
+		{"channel negative falls back to device", `"poll_interval":500,`, `"poll_interval":-1,`, 500, 500},
+		{"both zero", `"poll_interval":0,`, `"poll_interval":0,`, DefaultChannelPollInterval, DefaultChannelPollInterval},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var config DaemonConfig
+			err := json.Unmarshal([]byte(`{"devices":[{`+tt.deviceFields+`"address":"127.0.0.1","channels":[{`+tt.channelFields+`"name":"test","oid":".1.3.6.1.2.1.1.1.0"}]}]}`), &config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			device := config.Devices["snmp_127.0.0.1"]
+			if device.PollInterval != tt.devicePoll {
+				t.Fatalf("device poll_interval = %v, want %v", device.PollInterval, tt.devicePoll)
+			}
+			if got := device.Channels["test"].PollInterval; got != tt.channelPoll {
+				t.Fatalf("channel poll_interval = %v, want %v", got, tt.channelPoll)
+			}
+		})
+	}
+}
+
+func TestNumWorkers(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		fields  string
+		workers int
+		valid   bool
+	}{
+		{"default", "", DefaultNumWorkers, true},
+		{"explicit", `"num_workers":1,`, 1, true},
+		{"zero", `"num_workers":0,`, 0, false},
+		{"negative", `"num_workers":-1,`, 0, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var config DaemonConfig
+			err := json.Unmarshal([]byte(`{`+tt.fields+`"devices":[{"address":"127.0.0.1","channels":[{"name":"test","oid":".1.3.6.1.2.1.1.1.0"}]}]}`), &config)
+			if !tt.valid {
+				if err == nil {
+					t.Fatal("config parser doesn't fail on non-positive num_workers")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if config.NumWorkers != tt.workers {
+				t.Fatalf("num_workers = %v, want %v", config.NumWorkers, tt.workers)
 			}
 		})
 	}

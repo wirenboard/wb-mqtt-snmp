@@ -491,7 +491,7 @@ func (m *ModelWorkersTest) TestPollWorker() {
 	default:
 		m.Fail("no result from poller")
 	}
-	m.Equal(PollResult{ch3, "10.0"}, res)
+	m.Equal(PollResult{ch3, "10"}, res)
 
 	// close worker
 	m.quitChannel <- struct{}{}
@@ -542,7 +542,7 @@ func (m *ModelWorkersTest) TestModel() {
 	events1 := []*MockDeviceEvent{
 		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel1, type value, value foo, order 1"},
 		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel2, type value, value bar, order 2"},
-		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel3, type value, value 20.0, order 3"},
+		&MockDeviceEvent{OnNewControlEvent, "device snmp_device1, name channel3, type value, value 20, order 3"},
 	}
 
 	m.Require().NoError(obs.CheckEvents(events1, EventTimeout))

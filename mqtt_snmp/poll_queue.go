@@ -191,6 +191,11 @@ func (t *PollTable) Poll(out chan PollQuery, deadline time.Time) int {
 
 // NextPollTime gets next poll time point
 func (t *PollTable) NextPollTime() (minTime time.Time, err error) {
+	if len(t.Intervals) == 0 {
+		err = fmt.Errorf("poll table is empty")
+		return
+	}
+
 	// Go through all queues heads and get minimal time
 	var head, h PollQuery
 	head, err = t.Queues[t.Intervals[0]].GetHead()

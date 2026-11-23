@@ -1,3 +1,15 @@
+wb-mqtt-snmp (1.10.2) stable; urgency=medium
+
+  * Fix crash on start when all devices are disabled
+  * Reject non-positive num_workers, which made polling hang
+  * Use the default poll interval instead of hanging on poll_interval=0
+  * Reject duplicate device IDs instead of silently dropping a device
+  * Reject empty channel OIDs instead of crashing on them
+  * Fix channel settings of one device leaking into other devices of the same template
+  * Fix scaled values being rounded to one decimal place
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Fri, 20 Nov 2026 17:30:00 +0400
+
 wb-mqtt-snmp (1.10.1) stable; urgency=medium
 
   * Start service after the network is online
