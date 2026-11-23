@@ -141,6 +141,11 @@ func (p *PollQueueTest) TestPollTable() {
 	}
 }
 
+func (p *PollQueueTest) TestEmptyTableNextPollTime() {
+	_, err := NewPollTable().NextPollTime()
+	p.Error(err, "empty poll table must return an error, not panic")
+}
+
 func TestPollQueue(t *testing.T) {
 	s := new(PollQueueTest)
 

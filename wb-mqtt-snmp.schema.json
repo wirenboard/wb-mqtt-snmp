@@ -134,7 +134,7 @@
           "type": "integer",
           "title": "Desired default poll interval (ms)",
           "description": "poll_interval_description",
-          "minimum": 0,
+          "minimum": 1,
           "default": 1000,
           "propertyOrder": 95
         },
@@ -181,6 +181,7 @@
           "type": "string",
           "title": "Object ID",
           "description": "OID (starting from dot) or variable name from MIB",
+          "minLength": 1,
           "propertyOrder": 20
         },
 
@@ -216,7 +217,7 @@
           "type": "integer",
           "title": "Desired poll interval (ms)",
           "description": "poll_interval_description",
-          "minimum": 0,
+          "minimum": 1,
           "default": 1000,
           "propertyOrder": 50
         }
@@ -241,6 +242,7 @@
       "title": "Number of SNMP connections",
       "description": "Number of SNMP clients running simultaneously",
       "default": 4,
+      "minimum": 1,
       "maximum": 64,
       "propertyOrder": 15
     },
