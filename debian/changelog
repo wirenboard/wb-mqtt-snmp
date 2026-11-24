@@ -1,3 +1,9 @@
+wb-mqtt-snmp (1.10.3) stable; urgency=medium
+
+  * Return memory used for MIB parsing to the OS after startup
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Tue, 24 Nov 2026 13:21:35 +0400
+
 wb-mqtt-snmp (1.10.2) stable; urgency=medium
 
   * Fix crash on start when all devices are disabled

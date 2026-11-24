@@ -9,6 +9,7 @@ import (
 	_ "net/http/pprof" //nolint:gosec // pprof is served only when -profile is specified
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -73,6 +74,11 @@ func main() {
 		wbgong.Error.Printf("error translating OIDs: %s", err)
 		os.Exit(6) // EXIT_NOTCONFIGURED, see https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Process_Exit_Codes
 	}
+
+	// Parsing MIBs grows the heap by several megabytes of short-lived data,
+	// and the runtime is slow to hand those pages back. Return them now:
+	// without this the daemon keeps ~2 MB more RSS for its whole lifetime.
+	debug.FreeOSMemory()
 
 	// create driver object and start daemon
 	if driver, err := m.NewSnmpDriver(cfg, *broker); err != nil {
