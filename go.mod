@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/golangsnmp/gomib v0.13.2
 	github.com/gosnmp/gosnmp v1.47.0
-	github.com/wirenboard/wbgong v0.7.6-0.20261124173303-ee803ecd2293
+	github.com/wirenboard/wbgong v0.7.6
 )
 
 require (
