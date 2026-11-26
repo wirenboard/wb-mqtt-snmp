@@ -4,8 +4,8 @@ go 1.26.0
 
 require (
 	github.com/golangsnmp/gomib v0.13.2
-	github.com/gosnmp/gosnmp v1.45.0
-	github.com/wirenboard/wbgong v0.7.5
+	github.com/gosnmp/gosnmp v1.47.0
+	github.com/wirenboard/wbgong v0.7.6
 )
 
 require (
