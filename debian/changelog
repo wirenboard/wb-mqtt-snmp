@@ -1,3 +1,11 @@
+wb-mqtt-snmp (1.11.1) stable; urgency=medium
+
+  * Switch the license to The WB License (MIT-WB): Wiren Board
+    as the copyright holder, 2016 as the first publication year, use restricted to Wiren Board equipment
+  * Fill debian/copyright in the DEP-5 format
+
+ -- Ekaterina Volkova <ekaterina.volkova@wirenboard.com>  Thu, 26 Nov 2026 18:14:20 +0300
+
 wb-mqtt-snmp (1.11.0) stable; urgency=medium
 
   * Update dependencies
